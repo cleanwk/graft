@@ -8,6 +8,8 @@
     "dialog:allow-open",
     "dialog:allow-confirm",
     "opener:allow-open-path",
-    "opener:allow-reveal-item-in-dir"
+    "opener:allow-reveal-item-in-dir",
+    "process:allow-restart",
+    "updater:default"
   ]
 }

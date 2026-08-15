@@ -11,6 +11,7 @@ import ConflictResolver from "./components/ConflictResolver.vue";
 import RebaseDialog from "./components/RebaseDialog.vue";
 import HunkSelector from "./components/HunkSelector.vue";
 import NewReferenceDialog from "./components/NewReferenceDialog.vue";
+import UpdateBanner from "./components/UpdateBanner.vue";
 import { useRepositoryStore } from "./stores/repository";
 import { api } from "./lib/bridge";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -105,5 +106,6 @@ onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopIn
     <RebaseDialog v-if="rebaseDialog && store.repository" :repository-path="store.repository.root" @close="rebaseDialog = false" @complete="rebaseComplete" />
     <HunkSelector v-if="hunkFile && store.repository" :repository-path="store.repository.root" :file="hunkFile" @close="hunkFile = ''" @changed="store.repository = $event" />
     <NewReferenceDialog v-if="newReference && store.repository" :repository-path="store.repository.root" :kind="newReference" @close="newReference = undefined" @complete="referenceComplete" />
+    <UpdateBanner />
   </main>
 </template>

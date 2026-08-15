@@ -1,7 +1,7 @@
 {
   "name": "graft",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,14 +11,18 @@
     "tauri": "tauri",
     "app:dev": "tauri dev",
     "app:build": "tauri build --target aarch64-apple-darwin",
-    "check": "npm run build && npm run test && cargo test --manifest-path src-tauri/Cargo.toml"
+    "check": "npm run version:check && npm run build && npm run test && cargo test --manifest-path src-tauri/Cargo.toml",
+    "version:set": "node scripts/version.mjs",
+    "version:check": "node scripts/version.mjs --check"
   },
   "dependencies": {
+    "@lucide/vue": "1.31.0",
     "@tanstack/vue-virtual": "3.13.35",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-dialog": "latest",
     "@tauri-apps/plugin-opener": "latest",
-    "@lucide/vue": "1.31.0",
+    "@tauri-apps/plugin-process": "2.3.1",
+    "@tauri-apps/plugin-updater": "2.10.1",
     "pinia": "4.0.3",
     "vue": "3.5.41"
   },

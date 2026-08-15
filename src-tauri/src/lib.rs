@@ -228,6 +228,8 @@ pub fn run() {
         .manage(WatcherStore::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|_app| {
             #[cfg(debug_assertions)]
             if let Some(window) = _app.get_webview_window("main") {
