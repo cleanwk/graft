@@ -752,7 +752,7 @@ mod tests {
 
     #[test]
     fn ordinary_status_does_not_prefix_the_path_with_the_index_oid() {
-        let record = "# branch.oid 916158ce\0# branch.head main\01 .M N... 100644 100644 100644 82fc3886d45c663b85731dc7904a804b401db795 82fc3886d45c663b85731dc7904a804b401db795 .gitignore\0";
+        let record = "# branch.oid 916158ce\0# branch.head main\x001 .M N... 100644 100644 100644 82fc3886d45c663b85731dc7904a804b401db795 82fc3886d45c663b85731dc7904a804b401db795 .gitignore\0";
         let (_, _, _, _, _, changes) = parse_status(record);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].path, ".gitignore");
@@ -761,7 +761,7 @@ mod tests {
 
     #[test]
     fn renamed_status_keeps_both_paths_with_spaces() {
-        let record = "# branch.oid 916158ce\0# branch.head main\02 R. N... 100644 100644 100644 82fc3886d45c663b85731dc7904a804b401db795 82fc3886d45c663b85731dc7904a804b401db795 R100 docs/new name.md\0docs/old name.md\0";
+        let record = "# branch.oid 916158ce\0# branch.head main\x002 R. N... 100644 100644 100644 82fc3886d45c663b85731dc7904a804b401db795 82fc3886d45c663b85731dc7904a804b401db795 R100 docs/new name.md\0docs/old name.md\0";
         let (_, _, _, _, _, changes) = parse_status(record);
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].path, "docs/new name.md");
