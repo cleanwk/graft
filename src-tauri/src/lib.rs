@@ -26,7 +26,6 @@ type CommandResult<T> = Result<T, CommandError>;
 
 #[tauri::command]
 async fn open_repository(path: String) -> CommandResult<git::RepositorySnapshot> {
-    eprintln!("graft: opening {path}");
     let result = tauri::async_runtime::spawn_blocking(move || GitService::open(path).and_then(|git| git.snapshot()))
         .await
         .map_err(|error| CommandError {
@@ -35,7 +34,6 @@ async fn open_repository(path: String) -> CommandResult<git::RepositorySnapshot>
             recovery: None,
         })?
         .map_err(Into::into);
-    eprintln!("graft: repository snapshot complete");
     result
 }
 

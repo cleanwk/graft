@@ -464,7 +464,7 @@ impl GitService {
     }
 
     fn branches(&self) -> Result<Vec<Branch>, GitError> {
-        let format = format!("%(HEAD)%x1f%(refname:short)%x1f%(objectname:short)%x1f%(upstream:short)%x1f%(refname)");
+        let format = format!("%(HEAD)%1f%(refname:short)%1f%(objectname:short)%1f%(upstream:short)%1f%(refname)");
         let text = self.run(["for-each-ref", "refs/heads", "refs/remotes", &format!("--format={format}"), "--sort=refname"])?;
         Ok(text.lines().filter_map(|line| {
             let field: Vec<_> = line.split(FIELD).collect();
@@ -673,6 +673,7 @@ mod tests {
         fs::write(dir.path().join("README.md"), "one\ntwo\n").unwrap();
         let snapshot = git.snapshot().unwrap();
         assert_eq!(snapshot.branch, "main"); assert_eq!(snapshot.changes.len(), 1); assert!(!snapshot.changes[0].staged);
+        assert!(snapshot.branches.iter().any(|branch| branch.name == "main" && branch.current));
         git.set_staged(&["README.md".into()], true).unwrap();
         assert!(git.snapshot().unwrap().changes[0].staged);
     }
