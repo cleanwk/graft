@@ -26,6 +26,13 @@ Graft currently supports **Apple silicon** and **macOS 26 Tahoe or newer**.
 brew install --cask cleanwk/tap/graft
 ```
 
+Upgrade or remove the Homebrew-managed application with:
+
+```sh
+brew upgrade --cask --greedy graft
+brew uninstall --cask graft
+```
+
 Or download the DMG from [GitHub Releases](https://github.com/cleanwk/graft/releases/latest).
 
 The current Beta uses a hardened-runtime ad-hoc signature. Until Developer ID signing and Apple notarization are enabled, macOS may require you to confirm the first launch from **System Settings → Privacy & Security**. Do not disable Gatekeeper globally.
