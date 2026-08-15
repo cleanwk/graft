@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useVirtualizer } from "@tanstack/vue-virtual";
-import { Tag } from "@lucide/vue";
+import { SearchX, Tag } from "@lucide/vue";
 import type { CommitRow } from "../types";
 import { allocateGraphRows } from "../lib/graph";
 
-const props = defineProps<{ commits: CommitRow[]; selected?: string; hasMore: boolean; loadingMore: boolean }>();
+const ROW_HEIGHT = 31;
+
+const props = defineProps<{ commits: CommitRow[]; selected?: string; hasMore: boolean; loadingMore: boolean; filtered?: boolean }>();
 const emit = defineEmits<{ select: [commit: CommitRow]; more: [] }>();
 const scroller = ref<HTMLElement>();
-const virtualizer = useVirtualizer(computed(() => ({ count: props.commits.length, getScrollElement: () => scroller.value ?? null, estimateSize: () => 31, overscan: 16 })));
+const virtualizer = useVirtualizer(computed(() => ({ count: props.commits.length, getScrollElement: () => scroller.value ?? null, estimateSize: () => ROW_HEIGHT, overscan: 16 })));
 const colors = Array.from({ length: 8 }, (_, index) => `var(--graph-${index + 1})`);
 const graphRows = computed(() => allocateGraphRows(props.commits, colors.length));
 const branchTransitions = (index: number) => graphRows.value[index].parentLanes.filter((lane) => lane !== graphRows.value[index].lane);
@@ -17,18 +19,38 @@ function onScroll() {
   const element = scroller.value;
   if (element && props.hasMore && !props.loadingMore && element.scrollTop + element.clientHeight > element.scrollHeight - 900) emit("more");
 }
+
+function onKeydown(event: KeyboardEvent) {
+  const count = props.commits.length;
+  if (!count) return;
+  const current = props.commits.findIndex((commit) => commit.oid === props.selected);
+  const pageSize = Math.max(1, Math.floor((scroller.value?.clientHeight ?? ROW_HEIGHT * 10) / ROW_HEIGHT) - 1);
+  let next: number;
+  if (event.key === "ArrowDown") next = current < 0 ? 0 : Math.min(current + 1, count - 1);
+  else if (event.key === "ArrowUp") next = current < 0 ? 0 : Math.max(current - 1, 0);
+  else if (event.key === "PageDown") next = current < 0 ? 0 : Math.min(current + pageSize, count - 1);
+  else if (event.key === "PageUp") next = current < 0 ? 0 : Math.max(current - pageSize, 0);
+  else if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = count - 1;
+  else return;
+  if (next === current) { event.preventDefault(); return; }
+  event.preventDefault();
+  emit("select", props.commits[next]);
+  virtualizer.value.scrollToIndex(next, { align: "auto" });
+}
 </script>
 
 <template>
-  <div ref="scroller" class="commit-scroll" role="region" aria-label="Commit log" tabindex="0" @scroll="onScroll">
+  <div ref="scroller" class="commit-scroll" role="region" aria-label="Commit log" tabindex="0" @scroll="onScroll" @keydown="onKeydown">
     <div class="commit-spacer" :style="{ height: `${virtualizer.getTotalSize()}px` }">
       <button
         v-for="row in virtualizer.getVirtualItems()"
         :key="commits[row.index].oid"
         class="commit-row"
-        :class="{ selected: commits[row.index].oid === selected }"
+        :class="{ selected: commits[row.index].oid === selected, odd: row.index % 2 === 1 }"
         :style="{ transform: `translateY(${row.start}px)` }"
         :aria-label="`${commits[row.index].subject}, ${commits[row.index].author}, ${commits[row.index].relativeDate}`"
+        tabindex="-1"
         @click="emit('select', commits[row.index])"
       >
         <span class="graph-cell" aria-hidden="true">
@@ -49,5 +71,16 @@ function onScroll() {
       </button>
     </div>
     <div v-if="loadingMore" class="loading-more">Loading more history…</div>
+    <div v-else-if="!commits.length" class="commit-empty">
+      <template v-if="filtered">
+        <SearchX :size="20" />
+        <strong>No matching commits</strong>
+        <span>No loaded commit matches the current search.</span>
+      </template>
+      <template v-else>
+        <strong>No history yet</strong>
+        <span>Commits will appear here once this repository has history.</span>
+      </template>
+    </div>
   </div>
 </template>

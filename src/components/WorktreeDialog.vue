@@ -3,6 +3,8 @@ import { computed, ref, watch } from "vue";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
 import { ExternalLink, Lock, RefreshCw, Trash2, Unlock, X } from "@lucide/vue";
 import { api } from "../lib/bridge";
+import { useEscapeClose } from "../lib/dialog";
+import { errorMessage } from "../lib/errors";
 import type { RepositorySnapshot } from "../types";
 
 const props = defineProps<{ repository: RepositorySnapshot }>();
@@ -28,17 +30,18 @@ async function choosePath() {
 async function submit() {
   busy.value = true; error.value = "";
   try { const result = await api.addWorktree(props.repository.root, path.value, targetBranch.value, createBranch.value); emit("complete", result.summary); }
-  catch (caught) { error.value = typeof caught === "string" ? caught : (caught as { message?: string }).message ?? "Could not create the worktree."; }
+  catch (caught) { error.value = errorMessage(caught, "Could not create the worktree."); }
   finally { busy.value = false; }
 }
 async function action(kind: "prune" | "lock" | "unlock" | "remove", worktreePath?: string) {
   if (kind === "remove" && worktreePath && !await confirm(`Remove the worktree at ${worktreePath}? Uncommitted files prevent removal unless Force is chosen.`, { title: "Remove Worktree", kind: "warning", okLabel: "Remove" })) return;
   busy.value = true; error.value = "";
   try { const result = await api.worktreeAction(props.repository.root, kind, worktreePath); emit("complete", result.summary); }
-  catch (caught) { error.value = typeof caught === "string" ? caught : (caught as { message?: string }).message ?? "The worktree operation failed."; }
+  catch (caught) { error.value = errorMessage(caught, "The worktree operation failed."); }
   finally { busy.value = false; }
 }
 async function openWindow(worktreePath: string) { await api.openWindow(worktreePath); }
+useEscapeClose(() => emit("close"));
 </script>
 
 <template>
