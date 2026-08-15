@@ -45,7 +45,7 @@ export const useRepositoryStore = defineStore("repository", () => {
       localStorage.setItem("graft.lastRepository", path);
       commits.value = []; detail.value = undefined; selectedCommit.value = undefined;
       await loadMore();
-      selectedCommit.value = commits.value[0];
+      if (commits.value[0]) await selectCommit(commits.value[0]);
     } catch (caught) { error.value = failureMessage(caught); }
     finally { loading.value = false; }
   }

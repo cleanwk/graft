@@ -15,11 +15,12 @@ Run all local checks with `npm run check`. Create the arm64 app and DMG with `np
 
 The system `git` executable is the semantic source of truth for working-tree changes, hooks, signing, credentials, SSH, and repository operations. Graft does not send telemetry.
 
-## Status
+## Included workflows
 
-Graft is under active development. The current application includes paged virtualized history, commit details and patches, changelist-style staging and commits, branch/remotes navigation, worktree creation, merge/cherry-pick/revert/reset flows, interactive rebase planning, and a three-way conflict resolver.
+The current application includes paged virtualized history, commit details and patches, whole-file and hunk staging, commit/amend/push, branch/tag/remote creation, merge/cherry-pick/revert/reset flows, interactive rebase planning, and a three-way conflict resolver. Worktrees are first-class: list, create, open in a new window, lock, unlock, remove, and prune.
+
+See the [release acceptance report](docs/acceptance/2026-08-15-release.md) for verified workflows, performance results, screenshots, and signing status.
 
 ## License
 
 Licensed under either of Apache License 2.0 or MIT, at your option.
-

@@ -8,3 +8,4 @@ spikes/**/src-tauri/target/
 .DS_Store
 *.log
 .benchmarks/
+.impeccable/

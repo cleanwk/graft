@@ -17,7 +17,7 @@ load();
 <template>
   <div class="dialog-backdrop">
     <section class="rebase-dialog" role="dialog" aria-modal="true" aria-labelledby="rebase-title">
-      <header><div><h2 id="rebase-title">Interactively Rebase</h2><span>Reorder, combine, edit, or remove commits before replaying them.</span></div><button class="icon-button" aria-label="Close" @click="emit('close')"><X :size="15" /></button></header>
+      <header><div><h2 id="rebase-title">Interactive Rebase</h2><span>Reorder, combine, edit, or remove commits before replaying them.</span></div><button class="icon-button" aria-label="Close" @click="emit('close')"><X :size="15" /></button></header>
       <div class="rebase-base"><label>Onto</label><input v-model="onto" spellcheck="false" aria-label="Rebase base" @keyup.enter="load" /><button :disabled="busy" @click="load"><RotateCcw :size="12" />Reload</button></div>
       <div class="rebase-columns"><span>Action</span><span>Commit</span><span>Message</span><span>Order</span></div>
       <div class="rebase-list">

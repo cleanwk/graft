@@ -16,6 +16,8 @@ describe("CommitToolWindow", () => {
     expect(wrapper.text()).toContain("src/staged.ts");
     expect(wrapper.text()).toContain("src/working.ts");
     expect(wrapper.text()).toContain("Resolve…");
+    expect(wrapper.find(".change-groups section:first-of-type").text()).not.toContain("src/conflict.ts");
+    expect(wrapper.find(".change-groups section:last-of-type").text()).toContain("src/conflict.ts");
     expect(wrapper.get("button[type=submit]").attributes("disabled")).toBeDefined();
   });
 
@@ -28,4 +30,3 @@ describe("CommitToolWindow", () => {
     expect(wrapper.emitted("resolve")?.[0]).toEqual(["src/conflict.ts"]);
   });
 });
-

@@ -26,12 +26,12 @@ const sections = ref({ branches: true, remotes: true, tags: false, worktrees: tr
       <section>
         <button class="tree-heading" @click="sections.remotes = !sections.remotes"><ChevronRight :size="12" :class="{ expanded: sections.remotes }" /><Radio :size="13" /><span>Remotes</span><b>{{ repository.remotes.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'remote')" /></button>
         <div v-if="sections.remotes" class="tree-items">
-          <button v-for="remote in repository.remotes" :key="remote"><GitFork :size="12" /><span>{{ remote }}</span></button>
+          <div v-for="remote in repository.remotes" :key="remote" class="tree-static"><GitFork :size="12" /><span>{{ remote }}</span></div>
         </div>
       </section>
       <section>
         <button class="tree-heading" @click="sections.tags = !sections.tags"><ChevronRight :size="12" :class="{ expanded: sections.tags }" /><Tags :size="13" /><span>Tags</span><b>{{ repository.tags.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'tag')" /></button>
-        <div v-if="sections.tags" class="tree-items"><button v-for="tag in repository.tags.slice(0, 30)" :key="tag"><Tags :size="12" /><span>{{ tag }}</span></button></div>
+        <div v-if="sections.tags" class="tree-items"><div v-for="tag in repository.tags.slice(0, 30)" :key="tag" class="tree-static"><Tags :size="12" /><span>{{ tag }}</span></div></div>
       </section>
       <section>
         <button class="tree-heading" @click="sections.worktrees = !sections.worktrees"><ChevronRight :size="12" :class="{ expanded: sections.worktrees }" /><TreePine :size="13" /><span>Worktrees</span><b>{{ repository.worktrees.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addWorktree')" /></button>

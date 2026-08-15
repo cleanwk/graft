@@ -7,8 +7,8 @@ const props = defineProps<{ changes: Change[]; busy?: boolean; truncated?: boole
 const emit = defineEmits<{ staged: [path: string, staged: boolean]; commit: [message: string, amend: boolean, pushAfter: boolean]; resolve: [path: string]; inspect: [path: string] }>();
 const message = ref(""); const amend = ref(false);
 const showCommitMenu = ref(false);
-const staged = computed(() => props.changes.filter((change) => change.staged));
-const unstaged = computed(() => props.changes.filter((change) => !change.staged));
+const staged = computed(() => props.changes.filter((change) => change.staged && !change.conflicted));
+const unstaged = computed(() => props.changes.filter((change) => !change.staged || change.conflicted));
 
 function submit(pushAfter = false) {
   if (message.value.trim() && staged.value.length) emit("commit", message.value, amend.value, pushAfter);

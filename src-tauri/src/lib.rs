@@ -32,15 +32,14 @@ type CommandResult<T> = Result<T, CommandError>;
 
 #[tauri::command]
 async fn open_repository(path: String) -> CommandResult<git::RepositorySnapshot> {
-    let result = tauri::async_runtime::spawn_blocking(move || GitService::open(path).and_then(|git| git.snapshot()))
+    tauri::async_runtime::spawn_blocking(move || GitService::open(path).and_then(|git| git.snapshot()))
         .await
         .map_err(|error| CommandError {
             kind: "internal",
             message: error.to_string(),
             recovery: None,
         })?
-        .map_err(Into::into);
-    result
+        .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -229,9 +228,9 @@ pub fn run() {
         .manage(WatcherStore::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(debug_assertions)]
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = _app.get_webview_window("main") {
                 window.set_title("Graft — Development")?;
             }
             Ok(())

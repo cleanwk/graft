@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Archive, ArrowDownToLine, ArrowUpFromLine, Braces, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, ListFilter, LoaderCircle, PanelLeftClose, RefreshCw, RotateCcw, Search, Settings2, TreePine, X } from "@lucide/vue";
+import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, LoaderCircle, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
 import CommitGraph from "./components/CommitGraph.vue";
 import CommitPanel from "./components/CommitPanel.vue";
 import CommitToolWindow from "./components/CommitToolWindow.vue";
@@ -46,14 +46,13 @@ onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopIn
       <div class="traffic-space" data-tauri-drag-region />
       <button class="icon-button" title="Show or hide repository tree" aria-label="Toggle repository tree" @click="showSidebar = !showSidebar"><PanelLeftClose :size="15" /></button>
       <button class="icon-button" title="Open repository" aria-label="Open repository" @click="store.chooseRepository"><FolderOpen :size="15" /></button>
-      <button v-if="store.repository" class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span><ChevronDown :size="12" /></button>
+      <div v-if="store.repository" class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span></div>
       <div class="titlebar-center" data-tauri-drag-region>{{ store.repository?.name ?? 'Graft' }}</div>
       <div class="toolbar-actions">
         <button :disabled="!store.repository" @click="store.remote('fetch')"><ArrowDownToLine :size="14" /><span>Fetch</span></button>
         <button :disabled="!store.repository" @click="store.remote('pull')"><GitPullRequestArrow :size="14" /><span>Pull</span></button>
         <button :disabled="!store.repository" @click="store.remote('push')"><ArrowUpFromLine :size="14" /><span>Push</span></button>
         <button class="icon-button" :disabled="!store.repository" title="Refresh" aria-label="Refresh repository" @click="store.refresh"><RefreshCw :size="14" /></button>
-        <button class="icon-button" title="Settings" aria-label="Settings"><Settings2 :size="14" /></button>
       </div>
     </header>
 
@@ -62,9 +61,6 @@ onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopIn
       <section class="workspace">
         <div class="log-toolbar">
           <div class="search-field"><Search :size="13" /><input ref="searchInput" v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
-          <button><ListFilter :size="13" />All branches<ChevronDown :size="11" /></button>
-          <button><Braces :size="13" />Paths</button>
-          <span class="toolbar-separator" />
           <button title="Merge a branch into the current branch" @click="historyOperation = 'merge'"><GitMerge :size="13" />Merge</button>
           <button title="Interactively rebase the current branch" @click="rebaseDialog = true">Rebase…</button>
           <button :disabled="!store.selectedCommit" title="Cherry-pick selected commit" @click="historyOperation = 'cherryPick'">Cherry-pick</button>

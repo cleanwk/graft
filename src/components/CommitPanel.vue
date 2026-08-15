@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Copy, ExternalLink, FileCode2, GitCommitHorizontal } from "@lucide/vue";
+import { Copy, FileCode2, GitCommitHorizontal } from "@lucide/vue";
 import type { CommitDetail, CommitRow } from "../types";
 
 const props = defineProps<{ commit?: CommitRow; detail?: CommitDetail }>();
@@ -27,17 +27,16 @@ const copyHash = () => props.commit && window.navigator.clipboard.writeText(prop
       </div>
       <p v-if="detail?.body" class="commit-body">{{ detail.body }}</p>
       <div class="detail-tabs" role="tablist">
-        <button class="active" role="tab" aria-selected="true">Changes <span>{{ detail?.files.length ?? 0 }}</span></button>
+        <span class="active" role="tab" aria-selected="true">Changes <span>{{ detail?.files.length ?? 0 }}</span></span>
       </div>
       <div v-if="!detail" class="detail-loading"><span /> <span /> <span /></div>
       <template v-else>
         <div class="changed-files" aria-label="Changed files">
-          <button v-for="file in detail.files" :key="file.path">
+          <div v-for="file in detail.files" :key="file.path" class="detail-file">
             <span class="file-status" :data-status="file.status[0]">{{ file.status[0] }}</span>
             <FileCode2 :size="13" />
             <span>{{ file.path }}</span>
-            <ExternalLink :size="11" />
-          </button>
+          </div>
         </div>
         <pre class="patch" aria-label="Commit patch"><code><span v-for="(line, index) in patchLines" :key="index" :class="lineClass(line)"><i>{{ index + 1 }}</i>{{ line }}
 </span></code></pre>

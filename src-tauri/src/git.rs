@@ -243,7 +243,7 @@ impl GitService {
 
     pub fn log_page(&self, skip: usize, limit: usize) -> Result<LogPage, GitError> {
         let safe_limit = limit.clamp(1, 5_000);
-        let format = format!("%x1e%H%x1f%h%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%ar%x1f%s%x1f%D");
+        let format = "%x1e%H%x1f%h%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%ar%x1f%s%x1f%D".to_owned();
         let text = self.run([
             "log", "--all", "--decorate=short",
             &format!("--skip={skip}"), &format!("--max-count={}", safe_limit + 1),
@@ -266,14 +266,24 @@ impl GitService {
         if fields.len() < 9 {
             return Err(GitError::InvalidOutput("commit metadata is incomplete".into()));
         }
-        let names = self.run(["diff-tree", "--root", "--no-commit-id", "--name-status", "-r", "-M", oid])?;
-        let patch = self.run(["show", "--format=", "--find-renames", "--no-ext-diff", oid])?;
+        let parents: Vec<String> = fields[8].split_whitespace().map(str::to_owned).collect();
+        let (names, patch) = if let Some(parent) = parents.first() {
+            (
+                self.run_owned(vec!["diff".into(), "--name-status".into(), "-M".into(), parent.clone(), oid.into()])?,
+                self.run_owned(vec!["diff".into(), "--find-renames".into(), "--no-ext-diff".into(), parent.clone(), oid.into()])?,
+            )
+        } else {
+            (
+                self.run(["diff-tree", "--root", "--no-commit-id", "--name-status", "-r", "-M", oid])?,
+                self.run(["show", "--format=", "--find-renames", "--no-ext-diff", oid])?,
+            )
+        };
         Ok(CommitDetail {
             oid: fields[0].to_owned(), author: fields[1].to_owned(), author_email: fields[2].to_owned(),
             authored_at: fields[3].to_owned(), committer: fields[4].to_owned(), committed_at: fields[5].to_owned(),
             subject: fields[6].to_owned(), body: fields[7].trim().to_owned(),
-            parents: fields[8].split_whitespace().map(str::to_owned).collect(),
-            files: names.lines().filter_map(parse_changed_file).collect(), patch,
+            parents,
+            files: names.lines().filter_map(parse_changed_file).collect(), patch: bounded_patch(patch),
         })
     }
 
@@ -475,7 +485,7 @@ impl GitService {
     }
 
     fn branches(&self) -> Result<Vec<Branch>, GitError> {
-        let format = format!("%(HEAD)%1f%(refname:short)%1f%(objectname:short)%1f%(upstream:short)%1f%(refname)");
+        let format = "%(HEAD)%1f%(refname:short)%1f%(objectname:short)%1f%(upstream:short)%1f%(refname)".to_owned();
         let text = self.run(["for-each-ref", "refs/heads", "refs/remotes", &format!("--format={format}"), "--sort=refname"])?;
         Ok(text.lines().filter_map(|line| {
             let field: Vec<_> = line.split(FIELD).collect();
@@ -583,7 +593,7 @@ fn parse_status(text: &str) -> (String, String, Option<String>, usize, usize, Ve
             }
         } else if record.starts_with("1 ") || record.starts_with("2 ") || record.starts_with("u ") {
             let kind = record.as_bytes()[0] as char;
-            let split_at = if kind == '1' { 8 } else if kind == '2' { 9 } else { 10 };
+            let split_at = if kind == '1' { 8 } else if kind == '2' { 9 } else { 11 };
             let fields: Vec<_> = record.splitn(split_at, ' ').collect();
             if fields.len() >= split_at {
                 let xy = fields[1]; let path = fields[split_at - 1].to_owned();
@@ -662,6 +672,16 @@ fn lines(value: String) -> Vec<String> { value.lines().map(str::trim).filter(|li
 fn title_case(value: &str) -> String { let mut chars = value.chars(); chars.next().map(|c| c.to_uppercase().collect::<String>() + chars.as_str()).unwrap_or_default() }
 fn operation_label(value: &str) -> &str { match value { "cherryPick" => "Cherry-pick", value => value } }
 
+fn bounded_patch(mut patch: String) -> String {
+    const MAX_PATCH_BYTES: usize = 2 * 1024 * 1024;
+    if patch.len() <= MAX_PATCH_BYTES { return patch; }
+    let mut end = MAX_PATCH_BYTES;
+    while !patch.is_char_boundary(end) { end -= 1; }
+    patch.truncate(end);
+    patch.push_str("\n\n[Diff truncated at 2 MiB. Open the file or use system Git for the complete patch.]\n");
+    patch
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -696,6 +716,35 @@ mod tests {
         assert_eq!(log.commits[0].subject, "Initial commit");
         let detail = git.commit_detail(&log.commits[0].oid).unwrap();
         assert_eq!(detail.author, "Graft Test"); assert!(detail.files.iter().any(|f| f.path == "README.md"));
+    }
+
+    #[test]
+    fn merge_detail_compares_against_first_parent() {
+        let dir = fixture();
+        Command::new("git").args(["checkout", "-b", "topic"]).current_dir(dir.path()).output().unwrap();
+        fs::write(dir.path().join("topic.txt"), "topic\n").unwrap();
+        Command::new("git").args(["add", "."]).current_dir(dir.path()).output().unwrap();
+        Command::new("git").args(["commit", "-m", "Topic change"]).current_dir(dir.path()).output().unwrap();
+        Command::new("git").args(["checkout", "main"]).current_dir(dir.path()).output().unwrap();
+        fs::write(dir.path().join("main.txt"), "main\n").unwrap();
+        Command::new("git").args(["add", "."]).current_dir(dir.path()).output().unwrap();
+        Command::new("git").args(["commit", "-m", "Main change"]).current_dir(dir.path()).output().unwrap();
+        Command::new("git").args(["merge", "--no-ff", "topic", "-m", "Merge topic"]).current_dir(dir.path()).output().unwrap();
+        let git = GitService::open(dir.path()).unwrap();
+        let merge_oid = git.run(["rev-parse", "HEAD"]).unwrap();
+        let detail = git.commit_detail(merge_oid.trim()).unwrap();
+        assert_eq!(detail.parents.len(), 2);
+        assert!(detail.files.iter().any(|file| file.path == "topic.txt"));
+        assert!(detail.patch.contains("topic.txt"));
+    }
+
+    #[test]
+    fn unmerged_status_keeps_the_exact_file_path() {
+        let record = "# branch.oid 916158ce\0# branch.head main\0u UU N... 100644 100644 100644 100644 1e15e0100000000000000000000000000000000 1b5411a000000000000000000000000000000000 388ab35000000000000000000000000000000000 plan.txt\0";
+        let (_, _, _, _, _, changes) = parse_status(record);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].path, "plan.txt");
+        assert!(changes[0].conflicted);
     }
 
     #[test]

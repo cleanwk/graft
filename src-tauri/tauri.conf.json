@@ -35,7 +35,8 @@
     "shortDescription": "A precise, fast Git client for macOS",
     "longDescription": "Graft preserves the productive Git workflows of IntelliJ in a focused Rust and Tauri desktop application.",
     "macOS": {
-      "minimumSystemVersion": "26.0"
+      "minimumSystemVersion": "26.0",
+      "signingIdentity": "-"
     }
   }
 }

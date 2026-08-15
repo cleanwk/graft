@@ -8,8 +8,8 @@
   --separator: oklch(0.80 0.009 260);
   --separator-soft: oklch(0.865 0.007 260);
   --text: oklch(0.235 0.012 260);
-  --text-secondary: oklch(0.43 0.015 260);
-  --text-muted: oklch(0.54 0.013 260);
+  --text-secondary: oklch(0.37 0.015 260);
+  --text-muted: oklch(0.45 0.013 260);
   --cobalt: oklch(0.49 0.18 260);
   --cobalt-strong: oklch(0.42 0.19 260);
   --cobalt-text: oklch(0.35 0.16 260);
@@ -32,8 +32,8 @@
     --separator: oklch(0.37 0.012 260);
     --separator-soft: oklch(0.315 0.010 260);
     --text: oklch(0.91 0.009 260);
-    --text-secondary: oklch(0.74 0.012 260);
-    --text-muted: oklch(0.62 0.012 260);
+    --text-secondary: oklch(0.80 0.012 260);
+    --text-muted: oklch(0.70 0.012 260);
     --cobalt: oklch(0.66 0.16 260);
     --cobalt-strong: oklch(0.71 0.15 260);
     --cobalt-text: oklch(0.82 0.095 260);
@@ -43,4 +43,3 @@
     --focus: oklch(0.68 0.17 260 / 0.8);
   }
 }
-

@@ -58,3 +58,21 @@ same-repository comparison.
 Repeat the same measurements on the full Rebased history, replace the monolithic
 IPC payload with bounded pages, exercise continuous scroll, and record dropped
 frames plus peak/steady RSS before promoting any spike code to production.
+
+## Production follow-up
+
+The production implementation completed that gate on the full-history Rebased
+repository (524,408 commits, 1.0 GiB blob-filtered clone):
+
+- history is paged in 500-commit windows and virtualized in the UI;
+- working-tree status is capped at 2,000 entries;
+- commit patches are capped at 2 MiB before IPC serialization;
+- the ignored production benchmark completed its measured body in 1.45 seconds;
+- the test process and its unusually expensive Apple Git `status` child reached
+  396 MiB maximum RSS; the retained release application, including WebKit helper
+  processes, measured 232.5 MiB on a real repository with 500 displayed commits,
+  18 changes, 19 branches, 195 tags, and 7 worktrees.
+
+The release application starts registering with LaunchServices in roughly 266 ms
+and completed the measured macOS application check-in in 1.61 seconds. These are
+local measurements on the environment above, not cross-machine guarantees.
