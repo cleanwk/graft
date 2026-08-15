@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { Archive, ArrowDownToLine, ArrowUpFromLine, Braces, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, ListFilter, LoaderCircle, PanelLeftClose, RefreshCw, RotateCcw, Search, Settings2, TreePine, X } from "@lucide/vue";
 import CommitGraph from "./components/CommitGraph.vue";
 import CommitPanel from "./components/CommitPanel.vue";
@@ -13,6 +13,7 @@ import HunkSelector from "./components/HunkSelector.vue";
 import NewReferenceDialog from "./components/NewReferenceDialog.vue";
 import { useRepositoryStore } from "./stores/repository";
 import { api } from "./lib/bridge";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 const store = useRepositoryStore();
 const showSidebar = ref(true); const showCommit = ref(true); const worktreeDialog = ref(false); const commitTool = ref<InstanceType<typeof CommitToolWindow>>();
@@ -20,6 +21,8 @@ const historyOperation = ref<"merge" | "cherryPick" | "revert" | "reset">(); con
 const rebaseDialog = ref(false);
 const hunkFile = ref("");
 const newReference = ref<"branch" | "tag" | "remote">();
+const searchInput = ref<HTMLInputElement>();
+let stopInvalidation: UnlistenFn | undefined; let refreshTimer: number | undefined;
 const branchState = computed(() => store.repository ? `${store.repository.ahead ? `↑${store.repository.ahead}` : ''}${store.repository.behind ? ` ↓${store.repository.behind}` : ''}` : "");
 const activeOperation = computed(() => { const state = store.repository?.state; if (state?.rebasing) return "rebase"; if (state?.merging) return "merge"; if (state?.cherryPicking) return "cherryPick"; if (state?.reverting) return "revert"; return ""; });
 
@@ -31,7 +34,9 @@ function rebaseComplete(message: string) { rebaseDialog.value = false; store.not
 function referenceComplete(message: string) { newReference.value = undefined; store.notice = message; store.refresh(); }
 async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); } }
 async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
-onMounted(() => store.restore());
+function shortcuts(event: KeyboardEvent) { if (!event.metaKey) return; if (event.key.toLowerCase() === "o") { event.preventDefault(); store.chooseRepository(); } else if (event.key.toLowerCase() === "f") { event.preventDefault(); searchInput.value?.focus(); } else if (event.key === "Enter") { event.preventDefault(); commitTool.value?.submit(); } }
+onMounted(async () => { window.addEventListener("keydown", shortcuts); stopInvalidation = await listen("repository-invalidated", () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => store.refresh(), 300); }); store.restore(); });
+onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopInvalidation?.(); window.clearTimeout(refreshTimer); });
 </script>
 
 <template>
@@ -39,6 +44,7 @@ onMounted(() => store.restore());
     <header class="titlebar" data-tauri-drag-region>
       <div class="traffic-space" data-tauri-drag-region />
       <button class="icon-button" title="Show or hide repository tree" aria-label="Toggle repository tree" @click="showSidebar = !showSidebar"><PanelLeftClose :size="15" /></button>
+      <button class="icon-button" title="Open repository" aria-label="Open repository" @click="store.chooseRepository"><FolderOpen :size="15" /></button>
       <button v-if="store.repository" class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span><ChevronDown :size="12" /></button>
       <div class="titlebar-center" data-tauri-drag-region>{{ store.repository?.name ?? 'Graft' }}</div>
       <div class="toolbar-actions">
@@ -54,7 +60,7 @@ onMounted(() => store.restore());
       <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" />
       <section class="workspace">
         <div class="log-toolbar">
-          <div class="search-field"><Search :size="13" /><input v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
+          <div class="search-field"><Search :size="13" /><input ref="searchInput" v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
           <button><ListFilter :size="13" />All branches<ChevronDown :size="11" /></button>
           <button><Braces :size="13" />Paths</button>
           <span class="toolbar-separator" />

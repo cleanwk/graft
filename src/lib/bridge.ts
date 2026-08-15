@@ -28,4 +28,5 @@ export const api = {
   hunks: (path: string, file: string, staged: boolean) => command<DiffHunk[]>("diff_hunks", { path, file, staged }),
   applyHunk: (path: string, file: string, staged: boolean, index: number) => command<RepositorySnapshot>("apply_hunk", { path, file, staged, index }),
   manageReference: (path: string, kind: "branch" | "tag" | "remote", action: "create" | "delete" | "rename" | "add" | "remove", name: string, value?: string, force = false) => command<OperationResult>("manage_reference", { path, kind, action, name, value, force }),
+  watch: (path: string) => command<void>("watch_repository", { path }),
 };

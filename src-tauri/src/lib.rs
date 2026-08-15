@@ -1,8 +1,13 @@
 mod git;
 
 use git::{GitError, GitService};
+use notify::Watcher;
 use serde::Serialize;
-use tauri::Manager;
+use std::{collections::HashMap, path::Path, sync::Mutex};
+use tauri::{Emitter, Manager};
+
+#[derive(Default)]
+struct WatcherStore(Mutex<HashMap<String, notify::RecommendedWatcher>>);
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -177,12 +182,26 @@ async fn manage_reference(path: String, kind: String, action: String, name: Stri
         .await.map_err(internal_join_error)?.map_err(Into::into)
 }
 
+#[tauri::command]
+fn watch_repository(window: tauri::WebviewWindow, state: tauri::State<'_, WatcherStore>, path: String) -> CommandResult<()> {
+    let label = window.label().to_owned();
+    let emitter = window.clone();
+    let mut watcher = notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+        if event.is_ok() { let _ = emitter.emit("repository-invalidated", ()); }
+    }).map_err(|error| CommandError { kind: "watcher", message: error.to_string(), recovery: Some("Use Refresh to update the repository manually.".into()) })?;
+    watcher.watch(Path::new(&path), notify::RecursiveMode::Recursive)
+        .map_err(|error| CommandError { kind: "watcher", message: error.to_string(), recovery: Some("Use Refresh to update the repository manually.".into()) })?;
+    state.0.lock().map_err(|_| CommandError { kind: "internal", message: "Repository watcher lock was poisoned.".into(), recovery: None })?.insert(label, watcher);
+    Ok(())
+}
+
 fn internal_join_error(error: impl std::fmt::Display) -> CommandError {
     CommandError { kind: "internal", message: error.to_string(), recovery: None }
 }
 
 pub fn run() {
     tauri::Builder::default()
+        .manage(WatcherStore::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -213,6 +232,7 @@ pub fn run() {
             diff_hunks,
             apply_hunk,
             manage_reference,
+            watch_repository,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Graft");

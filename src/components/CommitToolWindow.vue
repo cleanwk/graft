@@ -12,7 +12,7 @@ const unstaged = computed(() => props.changes.filter((change) => !change.staged)
 function submit() {
   if (message.value.trim() && staged.value.length) emit("commit", message.value, amend.value);
 }
-defineExpose({ clear: () => { message.value = ""; amend.value = false; } });
+defineExpose({ clear: () => { message.value = ""; amend.value = false; }, submit });
 </script>
 
 <template>
