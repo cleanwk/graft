@@ -85,8 +85,13 @@ async fn set_staged(path: String, files: Vec<String>, staged: bool) -> CommandRe
 }
 
 #[tauri::command]
-async fn commit_changes(path: String, message: String, amend: bool) -> CommandResult<git::OperationResult> {
-    tauri::async_runtime::spawn_blocking(move || GitService::open(path)?.commit(&message, amend))
+async fn commit_changes(path: String, message: String, amend: bool, push_after: bool) -> CommandResult<git::OperationResult> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let git = GitService::open(path)?;
+        let mut result = git.commit(&message, amend)?;
+        if push_after { let pushed = git.remote_operation("push")?; result.summary = "Committed and pushed".into(); result.output.push_str(&pushed.output); }
+        Ok::<_, GitError>(result)
+    })
         .await
         .map_err(internal_join_error)?
         .map_err(Into::into)

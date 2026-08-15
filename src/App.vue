@@ -26,7 +26,7 @@ let stopInvalidation: UnlistenFn | undefined; let refreshTimer: number | undefin
 const branchState = computed(() => store.repository ? `${store.repository.ahead ? `↑${store.repository.ahead}` : ''}${store.repository.behind ? ` ↓${store.repository.behind}` : ''}` : "");
 const activeOperation = computed(() => { const state = store.repository?.state; if (state?.rebasing) return "rebase"; if (state?.merging) return "merge"; if (state?.cherryPicking) return "cherryPick"; if (state?.reverting) return "revert"; return ""; });
 
-async function doCommit(message: string, amend: boolean) { if (await store.commit(message, amend)) commitTool.value?.clear(); }
+async function doCommit(message: string, amend: boolean, pushAfter: boolean) { if (await store.commit(message, amend, pushAfter)) commitTool.value?.clear(); }
 function worktreeComplete(message: string) { worktreeDialog.value = false; store.notice = message; store.refresh(); }
 function operationComplete(message: string) { historyOperation.value = undefined; store.notice = message; store.refresh(); }
 function conflictComplete(message: string) { conflictFile.value = ""; store.notice = message; store.refresh(); }

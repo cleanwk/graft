@@ -84,10 +84,10 @@ export const useRepositoryStore = defineStore("repository", () => {
     catch (caught) { error.value = failureMessage(caught); }
   }
 
-  async function commit(message: string, amend: boolean) {
+  async function commit(message: string, amend: boolean, pushAfter = false) {
     if (!repository.value) return false;
     try {
-      const result = await api.commit(repository.value.root, message, amend);
+      const result = await api.commit(repository.value.root, message, amend, pushAfter);
       notice.value = result.summary; await refresh(); commits.value = []; await loadMore(); return true;
     } catch (caught) { error.value = failureMessage(caught); return false; }
   }

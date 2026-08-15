@@ -15,7 +15,7 @@ export const api = {
   detail: (path: string, oid: string) => command<CommitDetail>("commit_detail", { path, oid }),
   diff: (path: string, file: string, staged: boolean) => command<string>("working_diff", { path, file, staged }),
   stage: (path: string, files: string[], staged: boolean) => command<RepositorySnapshot>("set_staged", { path, files, staged }),
-  commit: (path: string, message: string, amend: boolean) => command<OperationResult>("commit_changes", { path, message, amend }),
+  commit: (path: string, message: string, amend: boolean, pushAfter = false) => command<OperationResult>("commit_changes", { path, message, amend, pushAfter }),
   remote: (path: string, operation: "fetch" | "pull" | "push") => command<OperationResult>("run_remote", { path, operation }),
   checkout: (path: string, branch: string, create: boolean) => command<OperationResult>("checkout_branch", { path, branch, create }),
   addWorktree: (path: string, worktreePath: string, branch: string, createBranch: boolean) => command<OperationResult>("add_worktree", { path, worktreePath, branch, createBranch }),

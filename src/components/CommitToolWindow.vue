@@ -4,13 +4,15 @@ import { Check, ChevronDown, File, GitCommit, RotateCcw } from "@lucide/vue";
 import type { Change } from "../types";
 
 const props = defineProps<{ changes: Change[]; busy?: boolean; truncated?: boolean }>();
-const emit = defineEmits<{ staged: [path: string, staged: boolean]; commit: [message: string, amend: boolean]; resolve: [path: string]; inspect: [path: string] }>();
+const emit = defineEmits<{ staged: [path: string, staged: boolean]; commit: [message: string, amend: boolean, pushAfter: boolean]; resolve: [path: string]; inspect: [path: string] }>();
 const message = ref(""); const amend = ref(false);
+const showCommitMenu = ref(false);
 const staged = computed(() => props.changes.filter((change) => change.staged));
 const unstaged = computed(() => props.changes.filter((change) => !change.staged));
 
-function submit() {
-  if (message.value.trim() && staged.value.length) emit("commit", message.value, amend.value);
+function submit(pushAfter = false) {
+  if (message.value.trim() && staged.value.length) emit("commit", message.value, amend.value, pushAfter);
+  showCommitMenu.value = false;
 }
 defineExpose({ clear: () => { message.value = ""; amend.value = false; }, submit });
 </script>
@@ -36,12 +38,13 @@ defineExpose({ clear: () => { message.value = ""; amend.value = false; }, submit
       </section>
       <div v-if="!changes.length" class="clean-state"><Check :size="18" /><strong>No changes</strong><span>Working tree is clean.</span></div>
     </div>
-    <form class="commit-form" @submit.prevent="submit">
+    <form class="commit-form" @submit.prevent="submit(false)">
       <textarea v-model="message" placeholder="Commit message" aria-label="Commit message" />
       <label class="amend"><input v-model="amend" type="checkbox" /><RotateCcw :size="12" />Amend</label>
       <div class="commit-actions">
         <button class="primary-button" type="submit" :disabled="!message.trim() || !staged.length || busy">Commit</button>
-        <button class="primary-menu" type="button" aria-label="More commit options"><ChevronDown :size="13" /></button>
+        <button class="primary-menu" type="button" aria-label="More commit options" @click="showCommitMenu = !showCommitMenu"><ChevronDown :size="13" /></button>
+        <div v-if="showCommitMenu" class="commit-menu"><button type="button" @click="submit(false)">Commit <kbd>⌘↩</kbd></button><button type="button" @click="submit(true)">Commit and Push…</button></div>
       </div>
     </form>
   </aside>
