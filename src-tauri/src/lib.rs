@@ -4,6 +4,7 @@ use git::{GitError, GitService};
 use notify::Watcher;
 use serde::Serialize;
 use std::{collections::HashMap, path::Path, sync::Mutex};
+use std::hash::{Hash, Hasher};
 use tauri::{Emitter, Manager};
 
 #[derive(Default)]
@@ -195,6 +196,25 @@ fn watch_repository(window: tauri::WebviewWindow, state: tauri::State<'_, Watche
     Ok(())
 }
 
+#[tauri::command]
+fn open_repository_window(app: tauri::AppHandle, path: String) -> CommandResult<()> {
+    GitService::open(&path)?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new(); path.hash(&mut hasher);
+    let label = format!("repo-{:x}", hasher.finish());
+    if let Some(window) = app.get_webview_window(&label) { window.set_focus().map_err(|error| CommandError { kind: "window", message: error.to_string(), recovery: None })?; return Ok(()); }
+    let url = format!("index.html?repo={}", urlencoding::encode(&path));
+    tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App(url.into()))
+        .title("Graft").inner_size(1480.0, 940.0).min_inner_size(960.0, 620.0)
+        .build().map_err(|error| CommandError { kind: "window", message: error.to_string(), recovery: Some("Open the worktree from the repository picker instead.".into()) })?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn worktree_action(path: String, action: String, worktree_path: Option<String>, force: bool) -> CommandResult<git::OperationResult> {
+    tauri::async_runtime::spawn_blocking(move || GitService::open(path)?.worktree_action(&action, worktree_path.as_deref(), force))
+        .await.map_err(internal_join_error)?.map_err(Into::into)
+}
+
 fn internal_join_error(error: impl std::fmt::Display) -> CommandError {
     CommandError { kind: "internal", message: error.to_string(), recovery: None }
 }
@@ -233,6 +253,8 @@ pub fn run() {
             apply_hunk,
             manage_reference,
             watch_repository,
+            open_repository_window,
+            worktree_action,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Graft");

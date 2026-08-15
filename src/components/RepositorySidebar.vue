@@ -4,7 +4,7 @@ import { ChevronRight, FolderGit2, GitBranch, GitFork, Plus, Radio, Tags, TreePi
 import type { RepositorySnapshot } from "../types";
 
 defineProps<{ repository: RepositorySnapshot }>();
-const emit = defineEmits<{ addWorktree: []; addReference: [kind: "branch" | "tag" | "remote"]; checkout: [branch: string] }>();
+const emit = defineEmits<{ addWorktree: []; addReference: [kind: "branch" | "tag" | "remote"]; checkout: [branch: string]; openWorktree: [path: string] }>();
 const sections = ref({ branches: true, remotes: true, tags: false, worktrees: true });
 </script>
 
@@ -36,7 +36,7 @@ const sections = ref({ branches: true, remotes: true, tags: false, worktrees: tr
       <section>
         <button class="tree-heading" @click="sections.worktrees = !sections.worktrees"><ChevronRight :size="12" :class="{ expanded: sections.worktrees }" /><TreePine :size="13" /><span>Worktrees</span><b>{{ repository.worktrees.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addWorktree')" /></button>
         <div v-if="sections.worktrees" class="tree-items worktrees">
-          <button v-for="worktree in repository.worktrees" :key="worktree.path" :title="worktree.path">
+          <button v-for="worktree in repository.worktrees" :key="worktree.path" :title="`${worktree.path} — double-click to open in a new window`" @dblclick="emit('openWorktree', worktree.path)">
             <TreePine :size="12" /><span>{{ worktree.branch ?? 'detached' }}</span><i>{{ worktree.head }}</i>
           </button>
         </div>

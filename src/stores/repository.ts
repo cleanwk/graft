@@ -51,7 +51,7 @@ export const useRepositoryStore = defineStore("repository", () => {
   }
 
   async function restore() {
-    const path = localStorage.getItem("graft.lastRepository");
+    const path = new URLSearchParams(window.location.search).get("repo") ?? localStorage.getItem("graft.lastRepository");
     if (path) await loadRepository(path);
   }
 

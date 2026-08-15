@@ -29,4 +29,6 @@ export const api = {
   applyHunk: (path: string, file: string, staged: boolean, index: number) => command<RepositorySnapshot>("apply_hunk", { path, file, staged, index }),
   manageReference: (path: string, kind: "branch" | "tag" | "remote", action: "create" | "delete" | "rename" | "add" | "remove", name: string, value?: string, force = false) => command<OperationResult>("manage_reference", { path, kind, action, name, value, force }),
   watch: (path: string) => command<void>("watch_repository", { path }),
+  openWindow: (path: string) => command<void>("open_repository_window", { path }),
+  worktreeAction: (path: string, action: "prune" | "lock" | "unlock" | "remove", worktreePath?: string, force = false) => command<OperationResult>("worktree_action", { path, action, worktreePath, force }),
 };

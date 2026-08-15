@@ -33,6 +33,7 @@ function conflictComplete(message: string) { conflictFile.value = ""; store.noti
 function rebaseComplete(message: string) { rebaseDialog.value = false; store.notice = message; store.refresh(); }
 function referenceComplete(message: string) { newReference.value = undefined; store.notice = message; store.refresh(); }
 async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); } }
+async function openWorktree(path: string) { try { await api.openWindow(path); } catch (caught) { store.error = String(caught); } }
 async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
 function shortcuts(event: KeyboardEvent) { if (!event.metaKey) return; if (event.key.toLowerCase() === "o") { event.preventDefault(); store.chooseRepository(); } else if (event.key.toLowerCase() === "f") { event.preventDefault(); searchInput.value?.focus(); } else if (event.key === "Enter") { event.preventDefault(); commitTool.value?.submit(); } }
 onMounted(async () => { window.addEventListener("keydown", shortcuts); stopInvalidation = await listen("repository-invalidated", () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => store.refresh(), 300); }); store.restore(); });
@@ -57,7 +58,7 @@ onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopIn
     </header>
 
     <template v-if="store.repository">
-      <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" />
+      <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" @open-worktree="openWorktree" />
       <section class="workspace">
         <div class="log-toolbar">
           <div class="search-field"><Search :size="13" /><input ref="searchInput" v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>

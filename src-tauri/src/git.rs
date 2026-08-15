@@ -337,6 +337,17 @@ impl GitService {
         Ok(OperationResult { summary: "Worktree removed".into(), output })
     }
 
+    pub fn worktree_action(&self, action: &str, path: Option<&str>, force: bool) -> Result<OperationResult, GitError> {
+        let output = match action {
+            "prune" => self.run(["worktree", "prune"] )?,
+            "lock" => self.run(["worktree", "lock", path.ok_or_else(|| GitError::Command("Worktree path is required.".into()))?])?,
+            "unlock" => self.run(["worktree", "unlock", path.ok_or_else(|| GitError::Command("Worktree path is required.".into()))?])?,
+            "remove" => return self.remove_worktree(path.ok_or_else(|| GitError::Command("Worktree path is required.".into()))?, force),
+            _ => return Err(GitError::Unsupported(format!("worktree {action}"))),
+        };
+        Ok(OperationResult { summary: format!("Worktree {} complete", action), output })
+    }
+
     pub fn history_operation(&self, operation: &str, target: &str, mode: Option<&str>) -> Result<OperationResult, GitError> {
         validate_revision_or_ref(target)?;
         let output = match operation {
