@@ -1,0 +1,41 @@
+{
+  "name": "graft",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "tauri": "tauri",
+    "app:dev": "tauri dev",
+    "app:build": "tauri build --target aarch64-apple-darwin",
+    "check": "npm run build && npm run test && cargo test --manifest-path src-tauri/Cargo.toml"
+  },
+  "dependencies": {
+    "@codemirror/commands": "latest",
+    "@codemirror/merge": "6.12.2",
+    "@codemirror/state": "latest",
+    "@codemirror/view": "latest",
+    "@tanstack/vue-virtual": "3.13.35",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-dialog": "latest",
+    "@tauri-apps/plugin-opener": "latest",
+    "@lucide/vue": "1.31.0",
+    "pinia": "4.0.3",
+    "reka-ui": "2.10.3",
+    "vue": "3.5.41"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4",
+    "@types/node": "26.2.0",
+    "@vitejs/plugin-vue": "6.0.8",
+    "@vue/test-utils": "latest",
+    "jsdom": "latest",
+    "typescript": "5.9.3",
+    "vite": "8.2.1",
+    "vitest": "latest",
+    "vue-tsc": "3.3.10"
+  }
+}

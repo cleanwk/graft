@@ -1,0 +1,10 @@
+node_modules/
+dist/
+target/
+src-tauri/target/
+spikes/**/node_modules/
+spikes/**/dist/
+spikes/**/src-tauri/target/
+.DS_Store
+*.log
+.benchmarks/

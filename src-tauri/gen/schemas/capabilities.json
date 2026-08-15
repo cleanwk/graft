@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Graft main window capabilities","local":true,"windows":["main","repo-*"],"permissions":["core:default","dialog:allow-open","dialog:allow-confirm","opener:allow-open-path","opener:allow-reveal-item-in-dir"]}}
