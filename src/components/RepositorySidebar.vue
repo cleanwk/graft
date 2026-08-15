@@ -16,7 +16,7 @@ const sections = ref({ branches: true, remotes: true, tags: false, worktrees: tr
     </header>
     <nav>
       <section>
-        <button class="tree-heading" @click="sections.branches = !sections.branches"><ChevronRight :size="12" :class="{ expanded: sections.branches }" /><GitBranch :size="13" /><span>Branches</span><b>{{ repository.branches.filter(b => !b.remote).length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'branch')" /></button>
+        <div class="tree-heading-row"><button class="tree-heading" @click="sections.branches = !sections.branches"><ChevronRight :size="12" :class="{ expanded: sections.branches }" /><GitBranch :size="13" /><span>Branches</span><b>{{ repository.branches.filter(b => !b.remote).length }}</b></button><button class="tree-action-button" aria-label="Create branch" title="Create branch" @click="emit('addReference', 'branch')"><Plus :size="13" /></button></div>
         <div v-if="sections.branches" class="tree-items">
           <button v-for="branch in repository.branches.filter(b => !b.remote).slice(0, 30)" :key="branch.name" :class="{ current: branch.current }" @dblclick="!branch.current && emit('checkout', branch.name)">
             <GitBranch :size="12" /><span>{{ branch.name }}</span><i v-if="branch.current">current</i>
@@ -24,17 +24,17 @@ const sections = ref({ branches: true, remotes: true, tags: false, worktrees: tr
         </div>
       </section>
       <section>
-        <button class="tree-heading" @click="sections.remotes = !sections.remotes"><ChevronRight :size="12" :class="{ expanded: sections.remotes }" /><Radio :size="13" /><span>Remotes</span><b>{{ repository.remotes.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'remote')" /></button>
+        <div class="tree-heading-row"><button class="tree-heading" @click="sections.remotes = !sections.remotes"><ChevronRight :size="12" :class="{ expanded: sections.remotes }" /><Radio :size="13" /><span>Remotes</span><b>{{ repository.remotes.length }}</b></button><button class="tree-action-button" aria-label="Add remote" title="Add remote" @click="emit('addReference', 'remote')"><Plus :size="13" /></button></div>
         <div v-if="sections.remotes" class="tree-items">
           <div v-for="remote in repository.remotes" :key="remote" class="tree-static"><GitFork :size="12" /><span>{{ remote }}</span></div>
         </div>
       </section>
       <section>
-        <button class="tree-heading" @click="sections.tags = !sections.tags"><ChevronRight :size="12" :class="{ expanded: sections.tags }" /><Tags :size="13" /><span>Tags</span><b>{{ repository.tags.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'tag')" /></button>
+        <div class="tree-heading-row"><button class="tree-heading" @click="sections.tags = !sections.tags"><ChevronRight :size="12" :class="{ expanded: sections.tags }" /><Tags :size="13" /><span>Tags</span><b>{{ repository.tags.length }}</b></button><button class="tree-action-button" aria-label="Create tag" title="Create tag" @click="emit('addReference', 'tag')"><Plus :size="13" /></button></div>
         <div v-if="sections.tags" class="tree-items"><div v-for="tag in repository.tags.slice(0, 30)" :key="tag" class="tree-static"><Tags :size="12" /><span>{{ tag }}</span></div></div>
       </section>
       <section>
-        <button class="tree-heading" @click="sections.worktrees = !sections.worktrees"><ChevronRight :size="12" :class="{ expanded: sections.worktrees }" /><TreePine :size="13" /><span>Worktrees</span><b>{{ repository.worktrees.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addWorktree')" /></button>
+        <div class="tree-heading-row"><button class="tree-heading" @click="sections.worktrees = !sections.worktrees"><ChevronRight :size="12" :class="{ expanded: sections.worktrees }" /><TreePine :size="13" /><span>Worktrees</span><b>{{ repository.worktrees.length }}</b></button><button class="tree-action-button" aria-label="Add worktree" title="Add worktree" @click="emit('addWorktree')"><Plus :size="13" /></button></div>
         <div v-if="sections.worktrees" class="tree-items worktrees">
           <button v-for="worktree in repository.worktrees" :key="worktree.path" :title="`${worktree.path} — double-click to open in a new window`" @dblclick="emit('openWorktree', worktree.path)">
             <TreePine :size="12" /><span>{{ worktree.branch ?? 'detached' }}</span><i>{{ worktree.head }}</i>

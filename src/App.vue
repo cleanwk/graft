@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, LoaderCircle, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
+import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
 import CommitGraph from "./components/CommitGraph.vue";
 import CommitPanel from "./components/CommitPanel.vue";
 import CommitToolWindow from "./components/CommitToolWindow.vue";
@@ -15,6 +15,7 @@ import UpdateBanner from "./components/UpdateBanner.vue";
 import { useRepositoryStore } from "./stores/repository";
 import { api } from "./lib/bridge";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { themes, useTheme } from "./lib/theme";
 
 const store = useRepositoryStore();
 const showSidebar = ref(true); const showCommit = ref(true); const worktreeDialog = ref(false); const commitTool = ref<InstanceType<typeof CommitToolWindow>>();
@@ -23,6 +24,10 @@ const rebaseDialog = ref(false);
 const hunkFile = ref("");
 const newReference = ref<"branch" | "tag" | "remote">();
 const searchInput = ref<HTMLInputElement>();
+const theme = useTheme();
+const sidebarWidth = ref(Number(localStorage.getItem("graft.sidebarWidth")) || 222);
+const commitWidth = ref(Number(localStorage.getItem("graft.commitWidth")) || 286);
+const shellStyle = computed(() => ({ "--sidebar-width": `${sidebarWidth.value}px`, "--commit-width": `${commitWidth.value}px` }));
 let stopInvalidation: UnlistenFn | undefined; let refreshTimer: number | undefined;
 const branchState = computed(() => store.repository ? `${store.repository.ahead ? `↑${store.repository.ahead}` : ''}${store.repository.behind ? ` ↓${store.repository.behind}` : ''}` : "");
 const activeOperation = computed(() => { const state = store.repository?.state; if (state?.rebasing) return "rebase"; if (state?.merging) return "merge"; if (state?.cherryPicking) return "cherryPick"; if (state?.reverting) return "revert"; return ""; });
@@ -37,19 +42,58 @@ async function checkout(branch: string) { if (!store.repository) return; try { c
 async function openWorktree(path: string) { try { await api.openWindow(path); } catch (caught) { store.error = String(caught); } }
 async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
 function shortcuts(event: KeyboardEvent) { if (!event.metaKey) return; if (event.key.toLowerCase() === "o") { event.preventDefault(); store.chooseRepository(); } else if (event.key.toLowerCase() === "f") { event.preventDefault(); searchInput.value?.focus(); } else if (event.key === "Enter") { event.preventDefault(); commitTool.value?.submit(); } }
-onMounted(async () => { window.addEventListener("keydown", shortcuts); stopInvalidation = await listen("repository-invalidated", () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => store.refresh(), 300); }); store.restore(); });
-onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopInvalidation?.(); window.clearTimeout(refreshTimer); });
+function fitPaneWidths() {
+  const available = Math.max(416, window.innerWidth - 31 - 420);
+  sidebarWidth.value = Math.min(Math.max(sidebarWidth.value, 176), Math.min(360, available - 240));
+  commitWidth.value = Math.min(Math.max(commitWidth.value, 240), Math.min(420, available - sidebarWidth.value));
+}
+function persistPaneWidths() {
+  localStorage.setItem("graft.sidebarWidth", String(Math.round(sidebarWidth.value)));
+  localStorage.setItem("graft.commitWidth", String(Math.round(commitWidth.value)));
+}
+function startPaneResize(pane: "sidebar" | "commit", event: PointerEvent) {
+  event.preventDefault();
+  const shell = (event.currentTarget as HTMLElement).closest(".app-shell") as HTMLElement;
+  const bounds = shell.getBoundingClientRect();
+  document.body.classList.add("is-resizing-pane");
+  const move = (moveEvent: PointerEvent) => {
+    if (pane === "sidebar") sidebarWidth.value = moveEvent.clientX - bounds.left;
+    else commitWidth.value = bounds.right - moveEvent.clientX - 31;
+    fitPaneWidths();
+  };
+  const stop = () => {
+    document.body.classList.remove("is-resizing-pane");
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", stop);
+    persistPaneWidths();
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop, { once: true });
+}
+function resizePaneWithKeyboard(pane: "sidebar" | "commit", event: KeyboardEvent) {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  event.preventDefault();
+  const direction = event.key === "ArrowRight" ? 1 : -1;
+  if (pane === "sidebar") sidebarWidth.value += direction * 16;
+  else commitWidth.value -= direction * 16;
+  fitPaneWidths(); persistPaneWidths();
+}
+onMounted(async () => { fitPaneWidths(); window.addEventListener("resize", fitPaneWidths); window.addEventListener("keydown", shortcuts); stopInvalidation = await listen("repository-invalidated", () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => store.refresh(), 300); }); store.restore(); });
+onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); window.removeEventListener("keydown", shortcuts); stopInvalidation?.(); window.clearTimeout(refreshTimer); });
 </script>
 
 <template>
-  <main class="app-shell" :class="{ 'sidebar-hidden': !showSidebar, 'commit-hidden': !showCommit }">
+  <main class="app-shell" :class="{ 'sidebar-hidden': !showSidebar, 'commit-hidden': !showCommit }" :style="shellStyle">
     <header class="titlebar" data-tauri-drag-region>
-      <div class="traffic-space" data-tauri-drag-region />
-      <button class="icon-button" title="Show or hide repository tree" aria-label="Toggle repository tree" @click="showSidebar = !showSidebar"><PanelLeftClose :size="15" /></button>
-      <button class="icon-button" title="Open repository" aria-label="Open repository" @click="store.chooseRepository"><FolderOpen :size="15" /></button>
-      <div v-if="store.repository" class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span></div>
+      <div class="titlebar-leading">
+        <div class="traffic-space" data-tauri-drag-region />
+        <button class="icon-button" title="Show or hide repository tree" aria-label="Toggle repository tree" @click="showSidebar = !showSidebar"><PanelLeftClose :size="15" /></button>
+        <button class="icon-button" title="Open repository" aria-label="Open repository" @click="store.chooseRepository"><FolderOpen :size="15" /></button>
+        <div v-if="store.repository" class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span></div>
+      </div>
       <div class="titlebar-center" data-tauri-drag-region>{{ store.repository?.name ?? 'Graft' }}</div>
       <div class="toolbar-actions">
+        <label class="theme-picker" title="Appearance"><Palette :size="14" /><select v-model="theme" aria-label="Appearance theme"><option v-for="item in themes" :key="item.id" :value="item.id">{{ item.label }}</option></select><ChevronDown :size="11" /></label>
         <button :disabled="!store.repository" @click="store.remote('fetch')"><ArrowDownToLine :size="14" /><span>Fetch</span></button>
         <button :disabled="!store.repository" @click="store.remote('pull')"><GitPullRequestArrow :size="14" /><span>Pull</span></button>
         <button :disabled="!store.repository" @click="store.remote('push')"><ArrowUpFromLine :size="14" /><span>Push</span></button>
@@ -59,6 +103,7 @@ onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopIn
 
     <template v-if="store.repository">
       <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" @open-worktree="openWorktree" />
+      <div v-if="showSidebar" class="pane-resizer sidebar-resizer" role="separator" aria-label="Resize repository sidebar" aria-orientation="vertical" :aria-valuenow="Math.round(sidebarWidth)" aria-valuemin="176" aria-valuemax="360" tabindex="0" title="Drag to resize repository sidebar" @pointerdown="startPaneResize('sidebar', $event)" @keydown="resizePaneWithKeyboard('sidebar', $event)" />
       <section class="workspace">
         <div class="log-toolbar">
           <div class="search-field"><Search :size="13" /><input ref="searchInput" v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
@@ -74,6 +119,7 @@ onBeforeUnmount(() => { window.removeEventListener("keydown", shortcuts); stopIn
         <CommitPanel :commit="store.selectedCommit" :detail="store.detail" />
       </section>
       <CommitToolWindow v-if="showCommit" ref="commitTool" :changes="store.repository.changes" :truncated="store.repository.changesTruncated" :busy="store.loading" @staged="store.setStaged" @commit="doCommit" @resolve="conflictFile = $event" @inspect="hunkFile = $event" />
+      <div v-if="showCommit" class="pane-resizer commit-resizer" role="separator" aria-label="Resize commit panel" aria-orientation="vertical" :aria-valuenow="Math.round(commitWidth)" aria-valuemin="240" aria-valuemax="420" tabindex="0" title="Drag to resize commit panel" @pointerdown="startPaneResize('commit', $event)" @keydown="resizePaneWithKeyboard('commit', $event)" />
       <nav class="tool-stripe" aria-label="Tool windows">
         <button :class="{ active: showCommit }" title="Commit" @click="showCommit = !showCommit"><Archive :size="15" /><span>Commit</span><b v-if="store.repository.changes.length">{{ store.repository.changes.length }}</b></button>
         <button title="Worktrees" @click="worktreeDialog = true"><TreePine :size="15" /><span>Worktrees</span></button>

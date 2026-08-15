@@ -43,8 +43,8 @@ defineExpose({ clear: () => { message.value = ""; amend.value = false; }, submit
       <label class="amend"><input v-model="amend" type="checkbox" /><RotateCcw :size="12" />Amend</label>
       <div class="commit-actions">
         <button class="primary-button" type="submit" :disabled="!message.trim() || !staged.length || busy">Commit</button>
-        <button class="primary-menu" type="button" aria-label="More commit options" @click="showCommitMenu = !showCommitMenu"><ChevronDown :size="13" /></button>
-        <div v-if="showCommitMenu" class="commit-menu"><button type="button" @click="submit(false)">Commit <kbd>⌘↩</kbd></button><button type="button" @click="submit(true)">Commit and Push…</button></div>
+        <button class="primary-menu" type="button" aria-label="More commit options" :disabled="!message.trim() || !staged.length || busy" @click="showCommitMenu = !showCommitMenu"><ChevronDown :size="13" /></button>
+        <div v-if="showCommitMenu" class="commit-menu"><button type="button" :disabled="busy" @click="submit(false)">Commit <kbd>⌘↩</kbd></button><button type="button" :disabled="busy" @click="submit(true)">Commit and Push…</button></div>
       </div>
     </form>
   </aside>

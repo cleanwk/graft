@@ -593,7 +593,10 @@ fn parse_status(text: &str) -> (String, String, Option<String>, usize, usize, Ve
             }
         } else if record.starts_with("1 ") || record.starts_with("2 ") || record.starts_with("u ") {
             let kind = record.as_bytes()[0] as char;
-            let split_at = if kind == '1' { 8 } else if kind == '2' { 9 } else { 11 };
+            // Porcelain v2 keeps the path in the ninth ordinary field and the
+            // tenth rename/copy field. Split only that far so paths containing
+            // spaces remain intact.
+            let split_at = if kind == '1' { 9 } else if kind == '2' { 10 } else { 11 };
             let fields: Vec<_> = record.splitn(split_at, ' ').collect();
             if fields.len() >= split_at {
                 let xy = fields[1]; let path = fields[split_at - 1].to_owned();
@@ -745,6 +748,24 @@ mod tests {
         assert_eq!(changes.len(), 1);
         assert_eq!(changes[0].path, "plan.txt");
         assert!(changes[0].conflicted);
+    }
+
+    #[test]
+    fn ordinary_status_does_not_prefix_the_path_with_the_index_oid() {
+        let record = "# branch.oid 916158ce\0# branch.head main\01 .M N... 100644 100644 100644 82fc3886d45c663b85731dc7904a804b401db795 82fc3886d45c663b85731dc7904a804b401db795 .gitignore\0";
+        let (_, _, _, _, _, changes) = parse_status(record);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].path, ".gitignore");
+        assert_eq!(changes[0].worktree_status, "M");
+    }
+
+    #[test]
+    fn renamed_status_keeps_both_paths_with_spaces() {
+        let record = "# branch.oid 916158ce\0# branch.head main\02 R. N... 100644 100644 100644 82fc3886d45c663b85731dc7904a804b401db795 82fc3886d45c663b85731dc7904a804b401db795 R100 docs/new name.md\0docs/old name.md\0";
+        let (_, _, _, _, _, changes) = parse_status(record);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].path, "docs/new name.md");
+        assert_eq!(changes[0].old_path.as_deref(), Some("docs/old name.md"));
     }
 
     #[test]

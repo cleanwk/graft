@@ -9,8 +9,9 @@ const props = defineProps<{ commits: CommitRow[]; selected?: string; hasMore: bo
 const emit = defineEmits<{ select: [commit: CommitRow]; more: [] }>();
 const scroller = ref<HTMLElement>();
 const virtualizer = useVirtualizer(computed(() => ({ count: props.commits.length, getScrollElement: () => scroller.value ?? null, estimateSize: () => 31, overscan: 16 })));
-const colors = ["#4d72e8", "#d17442", "#4d9b76", "#9b6bc1", "#c0973d", "#4b92a8", "#c45f83", "#76895a"];
+const colors = Array.from({ length: 8 }, (_, index) => `var(--graph-${index + 1})`);
 const graphRows = computed(() => allocateGraphRows(props.commits, colors.length));
+const branchTransitions = (index: number) => graphRows.value[index].parentLanes.filter((lane) => lane !== graphRows.value[index].lane);
 
 function onScroll() {
   const element = scroller.value;
@@ -31,11 +32,11 @@ function onScroll() {
         @click="emit('select', commits[row.index])"
       >
         <span class="graph-cell" aria-hidden="true">
-          <svg viewBox="0 0 76 31" preserveAspectRatio="none">
+          <svg viewBox="0 0 72 31" preserveAspectRatio="none">
             <line v-for="lane in graphRows[row.index].before" :key="`before-${lane}`" :x1="8 + (lane - 1) * 8" y1="0" :x2="8 + (lane - 1) * 8" y2="15.5" :stroke="colors[(lane - 1) % colors.length]" />
             <line v-for="lane in graphRows[row.index].nextLanes" :key="`after-${lane}`" :x1="8 + lane * 8" y1="15.5" :x2="8 + lane * 8" y2="31" :stroke="colors[lane % colors.length]" />
-            <line v-for="parentLane in graphRows[row.index].parentLanes" :key="`parent-${parentLane}`" :x1="8 + graphRows[row.index].lane * 8" y1="15.5" :x2="8 + parentLane * 8" y2="31" :stroke="colors[parentLane % colors.length]" />
-            <circle :cx="8 + graphRows[row.index].lane * 8" cy="15.5" r="4" :fill="commits[row.index].oid === selected ? 'var(--surface-selected)' : 'var(--canvas)'" :stroke="colors[graphRows[row.index].lane % colors.length]" stroke-width="2" />
+            <line v-for="parentLane in branchTransitions(row.index)" :key="`parent-${parentLane}`" :x1="8 + graphRows[row.index].lane * 8" y1="15.5" :x2="8 + parentLane * 8" y2="31" :stroke="colors[parentLane % colors.length]" />
+            <circle :cx="8 + graphRows[row.index].lane * 8" cy="15.5" r="4" fill="var(--commit-row-fill)" :stroke="colors[graphRows[row.index].lane % colors.length]" stroke-width="2" />
           </svg>
         </span>
         <span class="commit-subject">{{ commits[row.index].subject }}</span>

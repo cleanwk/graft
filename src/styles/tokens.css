@@ -1,5 +1,6 @@
-:root {
-  color-scheme: light dark;
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
   --canvas: oklch(0.965 0.004 260);
   --surface: oklch(0.935 0.006 260);
   --surface-raised: oklch(0.985 0.003 260);
@@ -10,20 +11,28 @@
   --text: oklch(0.235 0.012 260);
   --text-secondary: oklch(0.37 0.015 260);
   --text-muted: oklch(0.45 0.013 260);
-  --cobalt: oklch(0.49 0.18 260);
-  --cobalt-strong: oklch(0.42 0.19 260);
-  --cobalt-text: oklch(0.35 0.16 260);
+  --accent: oklch(0.49 0.18 260);
+  --accent-strong: oklch(0.42 0.19 260);
+  --accent-text: oklch(0.35 0.16 260);
   --amber: oklch(0.59 0.14 72);
   --red: oklch(0.53 0.19 25);
   --green: oklch(0.49 0.12 155);
   --focus: oklch(0.56 0.19 260 / 0.75);
+  --graph-1: oklch(0.55 0.19 260);
+  --graph-2: oklch(0.61 0.15 48);
+  --graph-3: oklch(0.56 0.12 155);
+  --graph-4: oklch(0.56 0.13 310);
+  --graph-5: oklch(0.63 0.12 85);
+  --graph-6: oklch(0.56 0.11 220);
+  --graph-7: oklch(0.57 0.15 350);
+  --graph-8: oklch(0.58 0.09 125);
   --shadow-float: 0 18px 50px oklch(0.18 0.02 260 / 0.22), 0 3px 10px oklch(0.18 0.02 260 / 0.18);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root[data-theme="dark"] {
+    color-scheme: dark;
     --canvas: oklch(0.215 0.009 260);
     --surface: oklch(0.255 0.010 260);
     --surface-raised: oklch(0.29 0.011 260);
@@ -34,12 +43,54 @@
     --text: oklch(0.91 0.009 260);
     --text-secondary: oklch(0.80 0.012 260);
     --text-muted: oklch(0.70 0.012 260);
-    --cobalt: oklch(0.66 0.16 260);
-    --cobalt-strong: oklch(0.71 0.15 260);
-    --cobalt-text: oklch(0.82 0.095 260);
+    --accent: oklch(0.66 0.16 260);
+    --accent-strong: oklch(0.71 0.15 260);
+    --accent-text: oklch(0.82 0.095 260);
     --amber: oklch(0.74 0.13 72);
     --red: oklch(0.68 0.16 25);
     --green: oklch(0.70 0.12 155);
     --focus: oklch(0.68 0.17 260 / 0.8);
-  }
+    --graph-1: oklch(0.71 0.15 260);
+    --graph-2: oklch(0.72 0.13 48);
+    --graph-3: oklch(0.70 0.11 155);
+    --graph-4: oklch(0.69 0.12 310);
+    --graph-5: oklch(0.74 0.11 85);
+    --graph-6: oklch(0.70 0.10 220);
+    --graph-7: oklch(0.70 0.13 350);
+    --graph-8: oklch(0.70 0.08 125);
+}
+
+:root[data-theme="droid"] {
+  color-scheme: dark;
+  --canvas: oklch(0.19 0.008 70);
+  --surface: oklch(0.235 0.010 70);
+  --surface-raised: oklch(0.275 0.012 70);
+  --surface-hover: oklch(0.315 0.022 68);
+  --surface-selected: oklch(0.34 0.072 55);
+  --separator: oklch(0.37 0.018 70);
+  --separator-soft: oklch(0.31 0.014 70);
+  --text: oklch(0.93 0.012 80);
+  --text-secondary: oklch(0.81 0.018 80);
+  --text-muted: oklch(0.69 0.022 75);
+  --accent: oklch(0.70 0.18 52);
+  --accent-strong: oklch(0.76 0.18 55);
+  --accent-text: oklch(0.83 0.13 65);
+  --amber: oklch(0.79 0.14 82);
+  --red: oklch(0.69 0.17 28);
+  --green: oklch(0.72 0.14 145);
+  --focus: oklch(0.73 0.19 55 / 0.85);
+  --graph-1: oklch(0.75 0.18 55);
+  --graph-2: oklch(0.74 0.14 145);
+  --graph-3: oklch(0.74 0.13 215);
+  --graph-4: oklch(0.72 0.14 305);
+  --graph-5: oklch(0.78 0.13 90);
+  --graph-6: oklch(0.70 0.13 250);
+  --graph-7: oklch(0.72 0.15 15);
+  --graph-8: oklch(0.73 0.10 180);
+}
+
+:root {
+  --cobalt: var(--accent);
+  --cobalt-strong: var(--accent-strong);
+  --cobalt-text: var(--accent-text);
 }
