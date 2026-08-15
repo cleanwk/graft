@@ -110,7 +110,7 @@ components:
 
 Graft is a compact macOS instrument for reading repository topology and acting on it without leaving the current context. The interface is organized as one continuous workspace: native toolbar above, refs and worktrees at left, commit graph over diff in the center, commit preparation at right, and a narrow tool stripe on the far edge. Fine dividers, stable columns, and restrained state color make a large amount of Git information feel composed rather than ornamental.
 
-The visual world is native light gray with a complete dark counterpart. Cobalt marks selection, focus, the current branch, and the next primary action; amber, red, and green report operational meaning. Lucide line icons support established labels and never replace important Git state on their own. Motion is short and local, while consequential flows expand into purpose-built dialogs for history operations, conflicts, hunks, references, and worktrees.
+The visual world ships in three selectable appearances: a native light gray default, a complete dark counterpart, and a Droid appearance built from warm graphite with an orange accent. The selected appearance is persistent and changes token values rather than component semantics. Cobalt marks selection, focus, the current branch, and the next primary action in Light and Dark; orange owns those same roles in Droid. Amber, red, and green report operational meaning. Lucide line icons support established labels and never replace important Git state on their own. Motion is short and local, while consequential flows expand into purpose-built dialogs for history operations, conflicts, hunks, references, and worktrees.
 
 **Key Characteristics:**
 
@@ -150,7 +150,15 @@ The default light scheme uses cool alloy grays; the same semantic roles resolve 
 
 **The Semantic Redundancy Rule.** Amber, red, and green always accompany a label, file-state letter, icon, line sign, or action wording.
 
-**The Appearance Role Rule.** Light and dark appearance change token values, not their meaning; components continue to reference semantic roles.
+**The Appearance Role Rule.** Light, Dark, and Droid change token values, not their meaning; components continue to reference semantic roles.
+
+### Appearance Themes
+
+- **Light:** Cool alloy grays with Instrument Cobalt. This is the default and the visual baseline for daytime use.
+- **Dark:** Cool blue-gray surfaces with a brighter cobalt accent for low-light, long-session work.
+- **Droid:** Warm graphite surfaces with operational orange as the accent. It remains restrained and tool-like; orange replaces cobalt only for selection, focus, current context, graph emphasis, and the primary action.
+
+Theme selection lives in the titlebar, persists across launches, and never changes density, layout, vocabulary, or semantic status colors.
 
 ## Typography
 
