@@ -10,6 +10,7 @@ import HistoryOperationDialog from "./components/HistoryOperationDialog.vue";
 import ConflictResolver from "./components/ConflictResolver.vue";
 import RebaseDialog from "./components/RebaseDialog.vue";
 import HunkSelector from "./components/HunkSelector.vue";
+import NewReferenceDialog from "./components/NewReferenceDialog.vue";
 import { useRepositoryStore } from "./stores/repository";
 import { api } from "./lib/bridge";
 
@@ -18,6 +19,7 @@ const showSidebar = ref(true); const showCommit = ref(true); const worktreeDialo
 const historyOperation = ref<"merge" | "cherryPick" | "revert" | "reset">(); const conflictFile = ref("");
 const rebaseDialog = ref(false);
 const hunkFile = ref("");
+const newReference = ref<"branch" | "tag" | "remote">();
 const branchState = computed(() => store.repository ? `${store.repository.ahead ? `↑${store.repository.ahead}` : ''}${store.repository.behind ? ` ↓${store.repository.behind}` : ''}` : "");
 const activeOperation = computed(() => { const state = store.repository?.state; if (state?.rebasing) return "rebase"; if (state?.merging) return "merge"; if (state?.cherryPicking) return "cherryPick"; if (state?.reverting) return "revert"; return ""; });
 
@@ -26,6 +28,8 @@ function worktreeComplete(message: string) { worktreeDialog.value = false; store
 function operationComplete(message: string) { historyOperation.value = undefined; store.notice = message; store.refresh(); }
 function conflictComplete(message: string) { conflictFile.value = ""; store.notice = message; store.refresh(); }
 function rebaseComplete(message: string) { rebaseDialog.value = false; store.notice = message; store.refresh(); }
+function referenceComplete(message: string) { newReference.value = undefined; store.notice = message; store.refresh(); }
+async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); } }
 async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
 onMounted(() => store.restore());
 </script>
@@ -47,7 +51,7 @@ onMounted(() => store.restore());
     </header>
 
     <template v-if="store.repository">
-      <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" />
+      <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" />
       <section class="workspace">
         <div class="log-toolbar">
           <div class="search-field"><Search :size="13" /><input v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
@@ -97,5 +101,6 @@ onMounted(() => store.restore());
     <ConflictResolver v-if="conflictFile && store.repository" :repository-path="store.repository.root" :file="conflictFile" @close="conflictFile = ''" @complete="conflictComplete" />
     <RebaseDialog v-if="rebaseDialog && store.repository" :repository-path="store.repository.root" @close="rebaseDialog = false" @complete="rebaseComplete" />
     <HunkSelector v-if="hunkFile && store.repository" :repository-path="store.repository.root" :file="hunkFile" @close="hunkFile = ''" @changed="store.repository = $event" />
+    <NewReferenceDialog v-if="newReference && store.repository" :repository-path="store.repository.root" :kind="newReference" @close="newReference = undefined" @complete="referenceComplete" />
   </main>
 </template>

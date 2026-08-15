@@ -439,6 +439,24 @@ impl GitService {
         Ok(())
     }
 
+    pub fn manage_reference(&self, kind: &str, action: &str, name: &str, value: Option<&str>, force: bool) -> Result<OperationResult, GitError> {
+        let output = match (kind, action) {
+            ("branch", "create") => {
+                validate_ref_name(name)?;
+                if let Some(start) = value { validate_revision_or_ref(start)?; self.run(["switch", "-c", name, start])? }
+                else { self.run(["switch", "-c", name])? }
+            }
+            ("branch", "delete") => { validate_ref_name(name)?; self.run(["branch", if force { "-D" } else { "-d" }, name])? }
+            ("branch", "rename") => { validate_ref_name(name)?; let next = value.ok_or_else(|| GitError::Command("New branch name is required.".into()))?; validate_ref_name(next)?; self.run(["branch", "-m", name, next])? }
+            ("tag", "create") => { validate_ref_name(name)?; let target = value.unwrap_or("HEAD"); validate_revision_or_ref(target)?; self.run(["tag", name, target])? }
+            ("tag", "delete") => { validate_ref_name(name)?; self.run(["tag", "-d", name])? }
+            ("remote", "add") => { validate_ref_name(name)?; let url = value.ok_or_else(|| GitError::Command("Remote URL is required.".into()))?; validate_remote_url(url)?; self.run(["remote", "add", name, url])? }
+            ("remote", "remove") => { validate_ref_name(name)?; self.run(["remote", "remove", name])? }
+            _ => return Err(GitError::Unsupported(format!("{kind} {action}"))),
+        };
+        Ok(OperationResult { summary: format!("{} {} complete", title_case(kind), action), output })
+    }
+
     fn rebase_in_progress(&self) -> Result<bool, GitError> {
         let git_dir = self.run(["rev-parse", "--git-dir"])?;
         let git_dir = if Path::new(git_dir.trim()).is_absolute() { PathBuf::from(git_dir.trim()) } else { self.root.join(git_dir.trim()) };
@@ -618,6 +636,11 @@ fn validate_repo_relative_path(value: &str) -> Result<(), GitError> {
     if !value.is_empty() && !path.is_absolute() && path.components().all(|part| !matches!(part, std::path::Component::ParentDir)) {
         Ok(())
     } else { Err(GitError::Command("Invalid repository path.".into())) }
+}
+
+fn validate_remote_url(value: &str) -> Result<(), GitError> {
+    if !value.trim().is_empty() && value.len() <= 4_096 && !value.contains(['\n', '\r', '\0']) { Ok(()) }
+    else { Err(GitError::Command("Invalid remote URL.".into())) }
 }
 
 fn validate_pathspec(value: &str) -> Result<(), GitError> {

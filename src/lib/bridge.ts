@@ -27,4 +27,5 @@ export const api = {
   startRebase: (path: string, onto: string, steps: RebaseStep[]) => command<OperationResult>("start_interactive_rebase", { path, onto, steps }),
   hunks: (path: string, file: string, staged: boolean) => command<DiffHunk[]>("diff_hunks", { path, file, staged }),
   applyHunk: (path: string, file: string, staged: boolean, index: number) => command<RepositorySnapshot>("apply_hunk", { path, file, staged, index }),
+  manageReference: (path: string, kind: "branch" | "tag" | "remote", action: "create" | "delete" | "rename" | "add" | "remove", name: string, value?: string, force = false) => command<OperationResult>("manage_reference", { path, kind, action, name, value, force }),
 };

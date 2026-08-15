@@ -173,6 +173,12 @@ async fn apply_hunk(path: String, file: String, staged: bool, index: usize) -> C
     }).await.map_err(internal_join_error)?.map_err(Into::into)
 }
 
+#[tauri::command]
+async fn manage_reference(path: String, kind: String, action: String, name: String, value: Option<String>, force: bool) -> CommandResult<git::OperationResult> {
+    tauri::async_runtime::spawn_blocking(move || GitService::open(path)?.manage_reference(&kind, &action, &name, value.as_deref(), force))
+        .await.map_err(internal_join_error)?.map_err(Into::into)
+}
+
 fn internal_join_error(error: impl std::fmt::Display) -> CommandError {
     CommandError { kind: "internal", message: error.to_string(), recovery: None }
 }
@@ -208,6 +214,7 @@ pub fn run() {
             start_interactive_rebase,
             diff_hunks,
             apply_hunk,
+            manage_reference,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Graft");

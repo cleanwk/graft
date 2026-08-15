@@ -4,7 +4,7 @@ import { ChevronRight, FolderGit2, GitBranch, GitFork, Plus, Radio, Tags, TreePi
 import type { RepositorySnapshot } from "../types";
 
 defineProps<{ repository: RepositorySnapshot }>();
-const emit = defineEmits<{ addWorktree: [] }>();
+const emit = defineEmits<{ addWorktree: []; addReference: [kind: "branch" | "tag" | "remote"]; checkout: [branch: string] }>();
 const sections = ref({ branches: true, remotes: true, tags: false, worktrees: true });
 </script>
 
@@ -16,21 +16,21 @@ const sections = ref({ branches: true, remotes: true, tags: false, worktrees: tr
     </header>
     <nav>
       <section>
-        <button class="tree-heading" @click="sections.branches = !sections.branches"><ChevronRight :size="12" :class="{ expanded: sections.branches }" /><GitBranch :size="13" /><span>Branches</span><b>{{ repository.branches.filter(b => !b.remote).length }}</b></button>
+        <button class="tree-heading" @click="sections.branches = !sections.branches"><ChevronRight :size="12" :class="{ expanded: sections.branches }" /><GitBranch :size="13" /><span>Branches</span><b>{{ repository.branches.filter(b => !b.remote).length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'branch')" /></button>
         <div v-if="sections.branches" class="tree-items">
-          <button v-for="branch in repository.branches.filter(b => !b.remote).slice(0, 30)" :key="branch.name" :class="{ current: branch.current }">
+          <button v-for="branch in repository.branches.filter(b => !b.remote).slice(0, 30)" :key="branch.name" :class="{ current: branch.current }" @dblclick="!branch.current && emit('checkout', branch.name)">
             <GitBranch :size="12" /><span>{{ branch.name }}</span><i v-if="branch.current">current</i>
           </button>
         </div>
       </section>
       <section>
-        <button class="tree-heading" @click="sections.remotes = !sections.remotes"><ChevronRight :size="12" :class="{ expanded: sections.remotes }" /><Radio :size="13" /><span>Remotes</span><b>{{ repository.remotes.length }}</b></button>
+        <button class="tree-heading" @click="sections.remotes = !sections.remotes"><ChevronRight :size="12" :class="{ expanded: sections.remotes }" /><Radio :size="13" /><span>Remotes</span><b>{{ repository.remotes.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'remote')" /></button>
         <div v-if="sections.remotes" class="tree-items">
           <button v-for="remote in repository.remotes" :key="remote"><GitFork :size="12" /><span>{{ remote }}</span></button>
         </div>
       </section>
       <section>
-        <button class="tree-heading" @click="sections.tags = !sections.tags"><ChevronRight :size="12" :class="{ expanded: sections.tags }" /><Tags :size="13" /><span>Tags</span><b>{{ repository.tags.length }}</b></button>
+        <button class="tree-heading" @click="sections.tags = !sections.tags"><ChevronRight :size="12" :class="{ expanded: sections.tags }" /><Tags :size="13" /><span>Tags</span><b>{{ repository.tags.length }}</b><Plus class="tree-action" :size="13" @click.stop="emit('addReference', 'tag')" /></button>
         <div v-if="sections.tags" class="tree-items"><button v-for="tag in repository.tags.slice(0, 30)" :key="tag"><Tags :size="12" /><span>{{ tag }}</span></button></div>
       </section>
       <section>
