@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
+import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronDown, CircleAlert, Download, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
 import CommitGraph from "./components/CommitGraph.vue";
 import CommitPanel from "./components/CommitPanel.vue";
 import CommitToolWindow from "./components/CommitToolWindow.vue";
@@ -25,6 +25,7 @@ const rebaseDialog = ref(false);
 const hunkFile = ref("");
 const newReference = ref<"branch" | "tag" | "remote">();
 const searchInput = ref<HTMLInputElement>();
+const updateCheck = ref(0);
 const theme = useTheme();
 const sidebarWidth = ref(Number(localStorage.getItem("graft.sidebarWidth")) || 222);
 const commitWidth = ref(Number(localStorage.getItem("graft.commitWidth")) || 286);
@@ -115,6 +116,7 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
       <nav class="tool-stripe" aria-label="Tool windows">
         <button :class="{ active: showCommit }" title="Commit" @click="showCommit = !showCommit"><Archive :size="15" /><span>Commit</span><b v-if="store.repository.changes.length">{{ store.repository.changes.length }}</b></button>
         <button title="Worktrees" @click="worktreeDialog = true"><TreePine :size="15" /><span>Worktrees</span></button>
+        <button title="Check for updates" @click="updateCheck++"><Download :size="15" /><span>Updates</span></button>
       </nav>
       <footer class="statusbar">
         <span><GitBranch :size="11" />{{ store.repository.branch }}</span>
@@ -144,6 +146,6 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
     <RebaseDialog v-if="rebaseDialog && store.repository" :repository-path="store.repository.root" @close="rebaseDialog = false" @complete="rebaseComplete" />
     <HunkSelector v-if="hunkFile && store.repository" :repository-path="store.repository.root" :file="hunkFile" @close="hunkFile = ''" @changed="store.repository = $event" />
     <NewReferenceDialog v-if="newReference && store.repository" :repository-path="store.repository.root" :kind="newReference" @close="newReference = undefined" @complete="referenceComplete" />
-    <UpdateBanner />
+    <UpdateBanner :check-request="updateCheck" />
   </main>
 </template>

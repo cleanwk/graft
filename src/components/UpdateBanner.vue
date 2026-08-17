@@ -1,22 +1,36 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
-import { Download, RefreshCw, X } from "@lucide/vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { CheckCircle2, Download, RefreshCw, X } from "@lucide/vue";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
+const props = withDefaults(defineProps<{ checkRequest?: number }>(), { checkRequest: 0 });
 const version = ref("");
 const notes = ref("");
 const visible = ref(false);
 const installing = ref(false);
 const progress = ref<number>();
 const error = ref("");
+const upToDate = ref(false);
 let availableUpdate: Awaited<ReturnType<typeof check>>;
+let timer: number | undefined;
+let hideTimer: number | undefined;
 
-async function checkForUpdate() {
+async function checkForUpdate(showResult = false) {
   if (import.meta.env.DEV) return;
+  window.clearTimeout(hideTimer);
+  upToDate.value = false;
   try {
     availableUpdate = await check({ timeout: 15_000 });
-    if (!availableUpdate) return;
+    if (!availableUpdate) {
+      visible.value = false;
+      if (showResult) {
+        upToDate.value = true;
+        visible.value = true;
+        hideTimer = window.setTimeout(() => { visible.value = false; }, 4_000);
+      }
+      return;
+    }
     version.value = availableUpdate.version;
     notes.value = availableUpdate.body ?? "A new Graft beta is ready.";
     visible.value = true;
@@ -44,17 +58,34 @@ async function installUpdate() {
   }
 }
 
-onMounted(checkForUpdate);
+function checkWhenVisible() {
+  if (document.visibilityState === "visible") void checkForUpdate();
+}
+
+watch(() => props.checkRequest, () => { void checkForUpdate(true); });
+onMounted(() => {
+  void checkForUpdate();
+  timer = window.setInterval(() => { void checkForUpdate(); }, 4 * 60 * 60 * 1_000);
+  window.addEventListener("online", checkWhenVisible);
+  document.addEventListener("visibilitychange", checkWhenVisible);
+});
+onBeforeUnmount(() => {
+  window.clearInterval(timer);
+  window.clearTimeout(hideTimer);
+  window.removeEventListener("online", checkWhenVisible);
+  document.removeEventListener("visibilitychange", checkWhenVisible);
+});
 </script>
 
 <template>
   <aside v-if="visible" class="update-banner" aria-live="polite">
-    <Download :size="17" />
+    <CheckCircle2 v-if="upToDate" :size="17" />
+    <Download v-else :size="17" />
     <div>
-      <strong>Graft {{ version }} is ready</strong>
-      <span>{{ error || notes }}</span>
+      <strong>{{ upToDate ? 'Graft is up to date' : `Graft ${version} is ready` }}</strong>
+      <span>{{ upToDate ? 'You already have the latest version.' : (error || notes) }}</span>
     </div>
-    <button class="primary-button" :disabled="installing" @click="installUpdate">
+    <button v-if="!upToDate" class="primary-button" :disabled="installing" @click="installUpdate">
       <RefreshCw :size="13" :class="{ spinning: installing }" />
       {{ installing ? (progress === undefined ? 'Updating…' : `Updating ${progress}%`) : 'Update & Restart' }}
     </button>
