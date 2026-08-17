@@ -2,15 +2,11 @@ import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api } from "../lib/bridge";
-import type { CommandFailure, CommitDetail, CommitRow, RepositorySnapshot } from "../types";
+import { errorMessage } from "../lib/errors";
+import type { CommitDetail, CommitRow, RepositorySnapshot } from "../types";
 
 const PAGE_SIZE = 500;
-
-function failureMessage(error: unknown): string {
-  if (typeof error === "string") return error;
-  const value = error as CommandFailure;
-  return [value?.message ?? (error as Error)?.message ?? "The operation failed.", value?.recovery].filter(Boolean).join(" ");
-}
+const NOTICE_TIMEOUT = 6000;
 
 export const useRepositoryStore = defineStore("repository", () => {
   const repository = ref<RepositorySnapshot>();
@@ -46,7 +42,7 @@ export const useRepositoryStore = defineStore("repository", () => {
       commits.value = []; detail.value = undefined; selectedCommit.value = undefined;
       await loadMore();
       if (commits.value[0]) await selectCommit(commits.value[0]);
-    } catch (caught) { error.value = failureMessage(caught); }
+    } catch (caught) { error.value = errorMessage(caught); }
     finally { loading.value = false; }
   }
 
@@ -58,7 +54,7 @@ export const useRepositoryStore = defineStore("repository", () => {
   async function refresh() {
     if (!repository.value) return;
     try { repository.value = await api.refresh(repository.value.root); }
-    catch (caught) { error.value = failureMessage(caught); }
+    catch (caught) { error.value = errorMessage(caught); }
   }
 
   async function loadMore() {
@@ -67,39 +63,50 @@ export const useRepositoryStore = defineStore("repository", () => {
     try {
       const page = await api.log(repository.value.root, commits.value.length, PAGE_SIZE);
       commits.value.push(...page.commits); hasMore.value = page.hasMore;
-    } catch (caught) { error.value = failureMessage(caught); }
+    } catch (caught) { error.value = errorMessage(caught); }
     finally { loadingMore.value = false; }
   }
 
+  let detailRequest = 0;
   async function selectCommit(commit: CommitRow) {
     if (!repository.value) return;
     selectedCommit.value = commit; detail.value = undefined;
-    try { detail.value = await api.detail(repository.value.root, commit.oid); }
-    catch (caught) { error.value = failureMessage(caught); }
+    const request = ++detailRequest;
+    try {
+      const result = await api.detail(repository.value.root, commit.oid);
+      if (request === detailRequest) detail.value = result;
+    } catch (caught) { if (request === detailRequest) error.value = errorMessage(caught); }
   }
 
   async function setStaged(path: string, staged: boolean) {
     if (!repository.value) return;
     try { repository.value = await api.stage(repository.value.root, [path], staged); }
-    catch (caught) { error.value = failureMessage(caught); }
+    catch (caught) { error.value = errorMessage(caught); }
   }
 
   async function commit(message: string, amend: boolean, pushAfter = false) {
     if (!repository.value) return false;
     try {
       const result = await api.commit(repository.value.root, message, amend, pushAfter);
-      notice.value = result.summary; await refresh(); commits.value = []; await loadMore(); return true;
-    } catch (caught) { error.value = failureMessage(caught); return false; }
+      notify(result.summary); await refresh(); commits.value = []; await loadMore(); return true;
+    } catch (caught) { error.value = errorMessage(caught); return false; }
   }
 
   async function remote(operation: "fetch" | "pull" | "push") {
     if (!repository.value) return;
     notice.value = `${operation[0].toUpperCase()}${operation.slice(1)}ing…`;
-    try { const result = await api.remote(repository.value.root, operation); notice.value = result.summary; await refresh(); }
-    catch (caught) { notice.value = ""; error.value = failureMessage(caught); }
+    try { const result = await api.remote(repository.value.root, operation); notify(result.summary); await refresh(); }
+    catch (caught) { notice.value = ""; error.value = errorMessage(caught); }
   }
 
-  function clearMessage() { error.value = ""; notice.value = ""; }
+  let noticeTimer: number | undefined;
+  function notify(message: string) {
+    notice.value = message;
+    window.clearTimeout(noticeTimer);
+    noticeTimer = window.setTimeout(() => { notice.value = ""; }, NOTICE_TIMEOUT);
+  }
 
-  return { repository, commits, selectedCommit, detail, loading, loadingMore, hasMore, error, notice, query, visibleCommits, chooseRepository, loadRepository, restore, refresh, loadMore, selectCommit, setStaged, commit, remote, clearMessage };
+  function clearMessage() { error.value = ""; notice.value = ""; window.clearTimeout(noticeTimer); }
+
+  return { repository, commits, selectedCommit, detail, loading, loadingMore, hasMore, error, notice, query, visibleCommits, chooseRepository, loadRepository, restore, refresh, loadMore, selectCommit, setStaged, commit, remote, notify, clearMessage };
 });

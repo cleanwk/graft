@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Archive, ArrowDownToLine, ArrowUpFromLine, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitMerge, GitPullRequestArrow, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
+import { Archive, ArrowDownToLine, ArrowUpFromLine, Check, Cherry, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitCompareArrows, GitMerge, GitPullRequestArrow, History, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
 import CommitGraph from "./components/CommitGraph.vue";
 import CommitPanel from "./components/CommitPanel.vue";
 import CommitToolWindow from "./components/CommitToolWindow.vue";
@@ -31,16 +31,17 @@ const shellStyle = computed(() => ({ "--sidebar-width": `${sidebarWidth.value}px
 let stopInvalidation: UnlistenFn | undefined; let refreshTimer: number | undefined;
 const branchState = computed(() => store.repository ? `${store.repository.ahead ? `↑${store.repository.ahead}` : ''}${store.repository.behind ? ` ↓${store.repository.behind}` : ''}` : "");
 const activeOperation = computed(() => { const state = store.repository?.state; if (state?.rebasing) return "rebase"; if (state?.merging) return "merge"; if (state?.cherryPicking) return "cherryPick"; if (state?.reverting) return "revert"; return ""; });
+const operationLabel = computed(() => ({ rebase: "Rebase", merge: "Merge", cherryPick: "Cherry-pick", revert: "Revert" })[activeOperation.value as "rebase" | "merge" | "cherryPick" | "revert"] ?? "");
 
 async function doCommit(message: string, amend: boolean, pushAfter: boolean) { if (await store.commit(message, amend, pushAfter)) commitTool.value?.clear(); }
-function worktreeComplete(message: string) { worktreeDialog.value = false; store.notice = message; store.refresh(); }
-function operationComplete(message: string) { historyOperation.value = undefined; store.notice = message; store.refresh(); }
-function conflictComplete(message: string) { conflictFile.value = ""; store.notice = message; store.refresh(); }
-function rebaseComplete(message: string) { rebaseDialog.value = false; store.notice = message; store.refresh(); }
-function referenceComplete(message: string) { newReference.value = undefined; store.notice = message; store.refresh(); }
-async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); } }
+function worktreeComplete(message: string) { worktreeDialog.value = false; store.notify(message); store.refresh(); }
+function operationComplete(message: string) { historyOperation.value = undefined; store.notify(message); store.refresh(); }
+function conflictComplete(message: string) { conflictFile.value = ""; store.notify(message); store.refresh(); }
+function rebaseComplete(message: string) { rebaseDialog.value = false; store.notify(message); store.refresh(); }
+function referenceComplete(message: string) { newReference.value = undefined; store.notify(message); store.refresh(); }
+async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notify(result.summary); await store.refresh(); } catch (caught) { store.error = String(caught); } }
 async function openWorktree(path: string) { try { await api.openWindow(path); } catch (caught) { store.error = String(caught); } }
-async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
+async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notify(result.summary); await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
 function shortcuts(event: KeyboardEvent) { if (!event.metaKey) return; if (event.key.toLowerCase() === "o") { event.preventDefault(); store.chooseRepository(); } else if (event.key.toLowerCase() === "f") { event.preventDefault(); searchInput.value?.focus(); } else if (event.key === "Enter") { event.preventDefault(); commitTool.value?.submit(); } }
 function fitPaneWidths() {
   const available = Math.max(416, window.innerWidth - 31 - 420);
@@ -108,14 +109,14 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
         <div class="log-toolbar">
           <div class="search-field"><Search :size="13" /><input ref="searchInput" v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
           <button title="Merge a branch into the current branch" @click="historyOperation = 'merge'"><GitMerge :size="13" />Merge</button>
-          <button title="Interactively rebase the current branch" @click="rebaseDialog = true">Rebase…</button>
-          <button :disabled="!store.selectedCommit" title="Cherry-pick selected commit" @click="historyOperation = 'cherryPick'">Cherry-pick</button>
-          <button :disabled="!store.selectedCommit" title="Revert selected commit" @click="historyOperation = 'revert'"><RotateCcw :size="12" />Revert</button>
-          <button :disabled="!store.selectedCommit" title="Reset current branch to selected commit" @click="historyOperation = 'reset'">Reset…</button>
+          <button title="Interactively rebase the current branch" @click="rebaseDialog = true"><GitCompareArrows :size="13" />Rebase…</button>
+          <button :disabled="!store.selectedCommit" title="Cherry-pick selected commit" @click="historyOperation = 'cherryPick'"><Cherry :size="13" />Cherry-pick</button>
+          <button :disabled="!store.selectedCommit" title="Revert selected commit" @click="historyOperation = 'revert'"><RotateCcw :size="13" />Revert</button>
+          <button :disabled="!store.selectedCommit" title="Reset current branch to selected commit" @click="historyOperation = 'reset'"><History :size="13" />Reset…</button>
           <span class="history-count">{{ store.commits.length.toLocaleString() }} loaded</span>
         </div>
         <div class="log-columns" aria-hidden="true"><span>Graph &amp; Commit</span><span>Author</span><span>Hash</span><span>Date</span></div>
-        <CommitGraph :commits="store.visibleCommits" :selected="store.selectedCommit?.oid" :has-more="store.hasMore" :loading-more="store.loadingMore" @select="store.selectCommit" @more="store.loadMore" />
+        <CommitGraph :commits="store.visibleCommits" :selected="store.selectedCommit?.oid" :has-more="store.hasMore" :loading-more="store.loadingMore" :filtered="Boolean(store.query.trim())" @select="store.selectCommit" @more="store.loadMore" />
         <CommitPanel :commit="store.selectedCommit" :detail="store.detail" />
       </section>
       <CommitToolWindow v-if="showCommit" ref="commitTool" :changes="store.repository.changes" :truncated="store.repository.changesTruncated" :busy="store.loading" @staged="store.setStaged" @commit="doCommit" @resolve="conflictFile = $event" @inspect="hunkFile = $event" />
@@ -126,8 +127,7 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
       </nav>
       <footer class="statusbar">
         <span><GitBranch :size="11" />{{ store.repository.branch }}</span>
-        <span v-if="store.repository.state.rebasing" class="operation"><LoaderCircle :size="11" />Rebase in progress</span>
-        <span v-if="store.repository.state.merging" class="operation"><LoaderCircle :size="11" />Merge in progress</span>
+        <span v-if="activeOperation" class="operation"><LoaderCircle :size="11" class="spinning" />{{ operationLabel }} in progress</span>
         <span v-if="store.repository.state.conflicts" class="danger"><CircleAlert :size="11" />{{ store.repository.state.conflicts }} conflicts</span>
         <span v-if="activeOperation" class="operation-actions"><button :disabled="store.repository.state.conflicts > 0" @click="finishOperation('continue')">Continue</button><button @click="finishOperation('abort')">Abort</button></span>
         <span class="status-path">{{ store.repository.root }}</span>
@@ -143,7 +143,7 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
     </section>
 
     <button v-if="store.error || store.notice" class="toast" :class="{ error: store.error }" @click="store.clearMessage">
-      <CircleAlert v-if="store.error" :size="15" /><RefreshCw v-else :size="15" />
+      <CircleAlert v-if="store.error" :size="15" /><Check v-else :size="15" />
       <span>{{ store.error || store.notice }}</span><X :size="13" />
     </button>
     <WorktreeDialog v-if="worktreeDialog && store.repository" :repository="store.repository" @close="worktreeDialog = false" @complete="worktreeComplete" />

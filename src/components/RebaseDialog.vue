@@ -2,16 +2,19 @@
 import { ref } from "vue";
 import { ArrowDown, ArrowUp, GripVertical, Play, RotateCcw, X } from "@lucide/vue";
 import { api } from "../lib/bridge";
+import { useEscapeClose } from "../lib/dialog";
+import { errorMessage } from "../lib/errors";
 import type { RebaseStep } from "../types";
 
 const props = defineProps<{ repositoryPath: string }>();
 const emit = defineEmits<{ close: []; complete: [message: string] }>();
 const onto = ref("HEAD~10"); const steps = ref<RebaseStep[]>([]); const busy = ref(false); const error = ref("");
 const actions: RebaseStep["action"][] = ["pick", "reword", "edit", "squash", "fixup", "drop"];
-async function load() { busy.value = true; error.value = ""; try { steps.value = await api.rebasePlan(props.repositoryPath, onto.value.trim()); if (!steps.value.length) error.value = "No commits exist between the base and HEAD."; } catch (caught) { error.value = String(caught); } finally { busy.value = false; } }
+async function load() { busy.value = true; error.value = ""; try { steps.value = await api.rebasePlan(props.repositoryPath, onto.value.trim()); if (!steps.value.length) error.value = "No commits exist between the base and HEAD."; } catch (caught) { error.value = errorMessage(caught); } finally { busy.value = false; } }
 function move(index: number, offset: number) { const target = index + offset; if (target < 0 || target >= steps.value.length) return; const copy = [...steps.value]; [copy[index], copy[target]] = [copy[target], copy[index]]; steps.value = copy; }
-async function start() { busy.value = true; error.value = ""; try { const result = await api.startRebase(props.repositoryPath, onto.value.trim(), steps.value); emit("complete", result.summary); } catch (caught) { error.value = String(caught); } finally { busy.value = false; } }
+async function start() { busy.value = true; error.value = ""; try { const result = await api.startRebase(props.repositoryPath, onto.value.trim(), steps.value); emit("complete", result.summary); } catch (caught) { error.value = errorMessage(caught); } finally { busy.value = false; } }
 load();
+useEscapeClose(() => emit("close"));
 </script>
 
 <template>

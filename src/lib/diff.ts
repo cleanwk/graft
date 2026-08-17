@@ -32,6 +32,14 @@ function sectionPath(section: string): string {
   return "";
 }
 
+/** Classifies a unified-diff line for styling; headers keep the neutral color. */
+export function diffLineClass(line: string): "addition" | "deletion" | "hunk" | "" {
+  if (line.startsWith("+") && !line.startsWith("+++")) return "addition";
+  if (line.startsWith("-") && !line.startsWith("---")) return "deletion";
+  if (line.startsWith("@@")) return "hunk";
+  return "";
+}
+
 export function splitCommitPatch(patch: string): FilePatch[] {
   if (!patch.trim()) return [];
   const starts: number[] = [];

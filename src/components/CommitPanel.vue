@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { Check, Copy, FileCode2, Files, GitCommitHorizontal } from "@lucide/vue";
 import type { CommitDetail, CommitRow } from "../types";
-import { splitCommitPatch } from "../lib/diff";
+import { splitCommitPatch, diffLineClass } from "../lib/diff";
+
+const MAX_PATCH_LINES = 2000;
 
 const props = defineProps<{ commit?: CommitRow; detail?: CommitDetail }>();
 const selectedFile = ref("");
@@ -11,8 +13,9 @@ const visiblePatch = computed(() => {
   if (!selectedFile.value) return props.detail?.patch ?? "";
   return filePatches.value.find((file) => file.path === selectedFile.value)?.patch ?? props.detail?.patch ?? "";
 });
-const patchLines = computed(() => visiblePatch.value.split("\n").slice(0, 2000));
-const lineClass = (line: string) => line.startsWith("+") && !line.startsWith("+++") ? "addition" : line.startsWith("-") && !line.startsWith("---") ? "deletion" : line.startsWith("@@") ? "hunk" : "";
+const allLines = computed(() => visiblePatch.value.split("\n"));
+const patchLines = computed(() => allLines.value.slice(0, MAX_PATCH_LINES));
+const patchTruncated = computed(() => allLines.value.length > MAX_PATCH_LINES);
 const copied = ref(false); let copyTimer: number | undefined;
 async function copyHash() {
   if (!props.commit) return;
@@ -57,8 +60,9 @@ onBeforeUnmount(() => window.clearTimeout(copyTimer));
             <span>{{ file.path }}</span>
           </button>
         </div>
-        <pre class="patch" aria-label="Commit patch"><code><span v-for="(line, index) in patchLines" :key="index" :class="lineClass(line)"><i>{{ index + 1 }}</i>{{ line }}
+        <pre class="patch" aria-label="Commit patch"><code><span v-for="(line, index) in patchLines" :key="index" :class="diffLineClass(line)"><i>{{ index + 1 }}</i>{{ line }}
 </span></code></pre>
+        <div v-if="patchTruncated" class="patch-truncated">Showing the first {{ MAX_PATCH_LINES.toLocaleString() }} of {{ allLines.length.toLocaleString() }} lines. Select a single file above to narrow the patch.</div>
       </template>
     </div>
     <div v-else class="detail-empty">Select a commit to inspect its changes.</div>

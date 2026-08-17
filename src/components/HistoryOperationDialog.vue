@@ -2,6 +2,8 @@
 import { computed, ref } from "vue";
 import { CircleAlert, X } from "@lucide/vue";
 import { api } from "../lib/bridge";
+import { useEscapeClose } from "../lib/dialog";
+import { errorMessage } from "../lib/errors";
 
 const props = defineProps<{ repositoryPath: string; operation: "merge" | "cherryPick" | "revert" | "reset"; initialTarget?: string }>();
 const emit = defineEmits<{ close: []; complete: [message: string] }>();
@@ -11,9 +13,10 @@ const dangerous = computed(() => props.operation === "reset" && mode.value === "
 async function submit() {
   busy.value = true; error.value = "";
   try { const result = await api.historyOperation(props.repositoryPath, props.operation, target.value.trim(), props.operation === "reset" ? mode.value : undefined); emit("complete", result.summary); }
-  catch (caught) { error.value = typeof caught === "string" ? caught : (caught as { message?: string }).message ?? `${label.value} failed.`; }
+  catch (caught) { error.value = errorMessage(caught, `${label.value} failed.`); }
   finally { busy.value = false; }
 }
+useEscapeClose(() => emit("close"));
 </script>
 
 <template>
