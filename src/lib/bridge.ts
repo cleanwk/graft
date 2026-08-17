@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { CommitDetail, ConflictFile, DiffHunk, LogPage, OperationResult, RebaseStep, RepositorySnapshot } from "../types";
+import type { BatchWorktreeResult, CommitDetail, ConflictFile, DiffHunk, LogPage, OperationResult, RebaseStep, RepositorySnapshot, TerminalApp, WorkspaceSnapshot } from "../types";
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
 
@@ -9,6 +9,7 @@ export async function command<T>(name: string, args: Record<string, unknown> = {
 }
 
 export const api = {
+  workspace: (path: string) => command<WorkspaceSnapshot>("open_workspace", { path }),
   open: (path: string) => command<RepositorySnapshot>("open_repository", { path }),
   refresh: (path: string) => command<RepositorySnapshot>("refresh_repository", { path }),
   log: (path: string, skip: number, limit: number) => command<LogPage>("log_page", { path, skip, limit }),
@@ -31,4 +32,7 @@ export const api = {
   watch: (path: string) => command<void>("watch_repository", { path }),
   openWindow: (path: string) => command<void>("open_repository_window", { path }),
   worktreeAction: (path: string, action: "prune" | "lock" | "unlock" | "remove", worktreePath?: string, force = false) => command<OperationResult>("worktree_action", { path, action, worktreePath, force }),
+  batchWorktrees: (workspacePath: string, repositories: string[], targetRoot: string, basis: "latestTag" | "defaultBranch") => command<BatchWorktreeResult>("create_workspace_worktrees", { workspacePath, repositories, targetRoot, basis }),
+  terminals: () => command<TerminalApp[]>("available_terminals"),
+  openTerminal: (path: string, terminal: TerminalApp["id"]) => command<void>("open_in_terminal", { path, terminal }),
 };

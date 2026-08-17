@@ -76,3 +76,21 @@ repository (524,408 commits, 1.0 GiB blob-filtered clone):
 The release application starts registering with LaunchServices in roughly 266 ms
 and completed the measured macOS application check-in in 1.61 seconds. These are
 local measurements on the environment above, not cross-machine guarantees.
+
+## 2026-08-17 memory containment pass
+
+The 500 MiB report was consistent with the remaining unbounded client behavior:
+virtualization limited mounted DOM rows, but repeated pagination still retained
+every loaded commit and Vue recursively proxied the large repository, history,
+and patch payloads. File-watcher events could also overlap refresh requests.
+
+The client now requests 250 commits at a time and retains at most 2,000, stores
+large immutable IPC responses in shallow refs, coalesces refreshes, caps status
+at 500 entries, caps backend patch IPC at 512 KiB, and renders at most 1,000
+patch lines. On the same real repository shape used above (500 displayed commits,
+18 changes, 19 branches, 196 tags, and 7 worktrees), the rebuilt release process
+set measured 217.5 MiB RSS immediately after restore: 94.8 MiB application,
+70.9 MiB Web Content, 39.7 MiB GPU, and 12.1 MiB Networking. That is 15.0 MiB
+(6.5%) below the earlier 232.5 MiB retained-release sample. The more important
+long-session result is bounded growth: history and patch retention can no longer
+continue expanding toward the 500 MiB report without limit.

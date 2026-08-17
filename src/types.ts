@@ -49,6 +49,42 @@ export interface RepositorySnapshot {
   worktrees: Worktree[];
 }
 
+export interface WorkspaceRepository {
+  root: string;
+  name: string;
+  branch: string;
+  latestTag?: string;
+  defaultBranch?: string;
+}
+
+export interface WorkspaceSnapshot {
+  root: string;
+  name: string;
+  kind: "repository" | "monorepo";
+  repositories: WorkspaceRepository[];
+}
+
+export interface BatchWorktreeEntry {
+  repository: string;
+  repositoryPath: string;
+  worktreePath: string;
+  base?: string;
+  success: boolean;
+  message: string;
+}
+
+export interface BatchWorktreeResult {
+  targetRoot: string;
+  entries: BatchWorktreeEntry[];
+  succeeded: number;
+  failed: number;
+}
+
+export interface TerminalApp {
+  id: "warp" | "iterm2" | "terminal";
+  name: string;
+}
+
 export interface CommitRow {
   oid: string;
   shortOid: string;

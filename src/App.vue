@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Archive, ArrowDownToLine, ArrowUpFromLine, Check, Cherry, ChevronDown, CircleAlert, Download, FolderOpen, GitBranch, GitCompareArrows, GitMerge, GitPullRequestArrow, History, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
+import { Archive, ArrowDownToLine, ArrowUpFromLine, Boxes, Check, Cherry, ChevronDown, CircleAlert, Download, FolderGit2, FolderOpen, GitBranch, GitCompareArrows, GitMerge, GitPullRequestArrow, History, LoaderCircle, Palette, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
 import CommitGraph from "./components/CommitGraph.vue";
 import CommitPanel from "./components/CommitPanel.vue";
 import CommitToolWindow from "./components/CommitToolWindow.vue";
@@ -12,19 +12,23 @@ import RebaseDialog from "./components/RebaseDialog.vue";
 import HunkSelector from "./components/HunkSelector.vue";
 import NewReferenceDialog from "./components/NewReferenceDialog.vue";
 import UpdateBanner from "./components/UpdateBanner.vue";
+import MonoRepoWorktreesDialog from "./components/MonoRepoWorktreesDialog.vue";
+import TerminalMenu from "./components/TerminalMenu.vue";
 import { useRepositoryStore } from "./stores/repository";
 import { api } from "./lib/bridge";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { themes, useTheme } from "./lib/theme";
 
 const store = useRepositoryStore();
-const showSidebar = ref(true); const showCommit = ref(true); const worktreeDialog = ref(false); const commitTool = ref<InstanceType<typeof CommitToolWindow>>();
+const showCommit = ref(true); const worktreeDialog = ref(false); const monoRepoWorktrees = ref(false); const commitTool = ref<InstanceType<typeof CommitToolWindow>>();
 const historyOperation = ref<"merge" | "cherryPick" | "revert" | "reset">(); const conflictFile = ref("");
 const rebaseDialog = ref(false);
 const hunkFile = ref("");
 const newReference = ref<"branch" | "tag" | "remote">();
 const searchInput = ref<HTMLInputElement>();
 const updateBanner = ref<InstanceType<typeof UpdateBanner>>();
+const contextSwitchers = ref<HTMLElement>();
+const branchMenu = ref(false);
 const theme = useTheme();
 const sidebarWidth = ref(Number(localStorage.getItem("graft.sidebarWidth")) || 222);
 const commitWidth = ref(Number(localStorage.getItem("graft.commitWidth")) || 286);
@@ -40,10 +44,11 @@ function operationComplete(message: string) { historyOperation.value = undefined
 function conflictComplete(message: string) { conflictFile.value = ""; store.notify(message); store.refresh(); }
 function rebaseComplete(message: string) { rebaseDialog.value = false; store.notify(message); store.refresh(); }
 function referenceComplete(message: string) { newReference.value = undefined; store.notify(message); store.refresh(); }
-async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notify(result.summary); await store.refresh(); } catch (caught) { store.error = String(caught); } }
+async function checkout(branch: string) { if (!store.repository) return; branchMenu.value = false; try { const result = await api.checkout(store.repository.root, branch, false); store.notify(result.summary); await store.refresh(); } catch (caught) { store.error = String(caught); } }
 async function openWorktree(path: string) { try { await api.openWindow(path); } catch (caught) { store.error = String(caught); } }
 async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notify(result.summary); await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
-function shortcuts(event: KeyboardEvent) { if (!event.metaKey) return; if (event.key.toLowerCase() === "o") { event.preventDefault(); store.chooseRepository(); } else if (event.key.toLowerCase() === "f") { event.preventDefault(); searchInput.value?.focus(); } else if (event.key === "Enter") { event.preventDefault(); commitTool.value?.submit(); } }
+function shortcuts(event: KeyboardEvent) { if (event.key === "Escape") branchMenu.value = false; if (!event.metaKey) return; if (event.key.toLowerCase() === "o") { event.preventDefault(); store.chooseWorkspace(); } else if (event.key.toLowerCase() === "f") { event.preventDefault(); searchInput.value?.focus(); } else if (event.key === "Enter") { event.preventDefault(); commitTool.value?.submit(); } }
+function closeContextMenus(event: PointerEvent) { if (!contextSwitchers.value?.contains(event.target as Node)) branchMenu.value = false; }
 function fitPaneWidths() {
   const available = Math.max(416, window.innerWidth - 31 - 420);
   sidebarWidth.value = Math.min(Math.max(sidebarWidth.value, 176), Math.min(360, available - 240));
@@ -80,21 +85,31 @@ function resizePaneWithKeyboard(pane: "sidebar" | "commit", event: KeyboardEvent
   else commitWidth.value -= direction * 16;
   fitPaneWidths(); persistPaneWidths();
 }
-onMounted(async () => { fitPaneWidths(); window.addEventListener("resize", fitPaneWidths); window.addEventListener("keydown", shortcuts); stopInvalidation = await listen("repository-invalidated", () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => store.refresh(), 300); }); store.restore(); });
-onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); window.removeEventListener("keydown", shortcuts); stopInvalidation?.(); window.clearTimeout(refreshTimer); });
+onMounted(async () => { fitPaneWidths(); window.addEventListener("resize", fitPaneWidths); window.addEventListener("keydown", shortcuts); document.addEventListener("pointerdown", closeContextMenus); stopInvalidation = await listen("repository-invalidated", () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => store.refresh(), 450); }); store.restore(); });
+onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); window.removeEventListener("keydown", shortcuts); document.removeEventListener("pointerdown", closeContextMenus); stopInvalidation?.(); window.clearTimeout(refreshTimer); });
 </script>
 
 <template>
-  <main class="app-shell" :class="{ 'sidebar-hidden': !showSidebar, 'commit-hidden': !showCommit }" :style="shellStyle">
+  <main class="app-shell" :class="{ 'commit-hidden': !showCommit }" :style="shellStyle">
     <header class="titlebar" data-tauri-drag-region>
-      <div class="titlebar-leading">
+      <div ref="contextSwitchers" class="titlebar-leading">
         <div class="traffic-space" data-tauri-drag-region />
-        <button class="icon-button" title="Show or hide repository tree" aria-label="Toggle repository tree" @click="showSidebar = !showSidebar"><PanelLeftClose :size="15" /></button>
-        <button class="icon-button" title="Open repository" aria-label="Open repository" @click="store.chooseRepository"><FolderOpen :size="15" /></button>
-        <div v-if="store.repository" class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span></div>
+        <button class="context-button workspace-button" :title="store.workspace ? `${store.workspace.root} — choose another workspace` : 'Open workspace'" @click="store.chooseWorkspace">
+          <Boxes v-if="store.workspace?.kind === 'monorepo'" :size="14" /><FolderGit2 v-else :size="14" />
+          <span><small>Workspace</small><strong>{{ store.workspace?.name ?? 'Open Workspace…' }}</strong></span>
+          <em v-if="store.workspace?.kind === 'monorepo'">Mono Repo</em>
+        </button>
+        <div v-if="store.repository" class="branch-switcher">
+          <button class="context-button branch-button" aria-haspopup="menu" :aria-expanded="branchMenu" @click.stop="branchMenu = !branchMenu"><GitBranch :size="14" /><span><small>Branch</small><strong>{{ store.repository.branch }}</strong></span><b>{{ branchState }}</b><ChevronDown :size="11" /></button>
+          <div v-if="branchMenu" class="branch-menu" role="menu">
+            <span>Switch branch in {{ store.repository.name }}</span>
+            <button v-for="branch in store.repository.branches.filter((item) => !item.remote).slice(0, 40)" :key="branch.name" role="menuitem" :disabled="branch.current" @click="checkout(branch.name)"><GitBranch :size="12" /><strong>{{ branch.name }}</strong><em v-if="branch.current">Current</em></button>
+          </div>
+        </div>
+        <button v-if="store.workspace?.kind === 'monorepo'" class="batch-worktree-button" title="Create a worktree for multiple repositories" @click="monoRepoWorktrees = true"><TreePine :size="14" /><span>Workspace Worktrees…</span></button>
       </div>
-      <div class="titlebar-center" data-tauri-drag-region>{{ store.repository?.name ?? 'Graft' }}</div>
       <div class="toolbar-actions">
+        <TerminalMenu v-if="store.repository" :path="store.repository.root" @error="store.error = $event" />
         <label class="theme-picker" title="Appearance"><Palette :size="14" /><select v-model="theme" aria-label="Appearance theme"><option v-for="item in themes" :key="item.id" :value="item.id">{{ item.label }}</option></select><ChevronDown :size="11" /></label>
         <button class="icon-button" title="Check for updates" aria-label="Check for updates" @click="updateBanner?.checkForUpdate(true)"><Download :size="14" /></button>
         <button :disabled="!store.repository" @click="store.remote('fetch')"><ArrowDownToLine :size="14" /><span>Fetch</span></button>
@@ -105,8 +120,8 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
     </header>
 
     <template v-if="store.repository">
-      <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" @open-worktree="openWorktree" />
-      <div v-if="showSidebar" class="pane-resizer sidebar-resizer" role="separator" aria-label="Resize repository sidebar" aria-orientation="vertical" :aria-valuenow="Math.round(sidebarWidth)" aria-valuemin="176" aria-valuemax="360" tabindex="0" title="Drag to resize repository sidebar" @pointerdown="startPaneResize('sidebar', $event)" @keydown="resizePaneWithKeyboard('sidebar', $event)" />
+      <RepositorySidebar :repository="store.repository" :workspace="store.workspace" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" @open-worktree="openWorktree" @select-repository="store.selectWorkspaceRepository" />
+      <div class="pane-resizer sidebar-resizer" role="separator" aria-label="Resize repository sidebar" aria-orientation="vertical" :aria-valuenow="Math.round(sidebarWidth)" aria-valuemin="176" aria-valuemax="360" tabindex="0" title="Drag to resize repository sidebar" @pointerdown="startPaneResize('sidebar', $event)" @keydown="resizePaneWithKeyboard('sidebar', $event)" />
       <section class="workspace">
         <div class="log-toolbar">
           <div class="search-field"><Search :size="13" /><input ref="searchInput" v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
@@ -115,7 +130,7 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
           <button :disabled="!store.selectedCommit" title="Cherry-pick selected commit" @click="historyOperation = 'cherryPick'"><Cherry :size="13" />Cherry-pick</button>
           <button :disabled="!store.selectedCommit" title="Revert selected commit" @click="historyOperation = 'revert'"><RotateCcw :size="13" />Revert</button>
           <button :disabled="!store.selectedCommit" title="Reset current branch to selected commit" @click="historyOperation = 'reset'"><History :size="13" />Reset…</button>
-          <span class="history-count">{{ store.commits.length.toLocaleString() }} loaded</span>
+          <span class="history-count">{{ store.commits.length.toLocaleString() }} loaded<span v-if="store.historyCapped"> · memory limit</span></span>
         </div>
         <div class="log-columns" aria-hidden="true"><span>Graph &amp; Commit</span><span>Author</span><span>Hash</span><span>Date</span></div>
         <CommitGraph :commits="store.visibleCommits" :selected="store.selectedCommit?.oid" :has-more="store.hasMore" :loading-more="store.loadingMore" :filtered="Boolean(store.query.trim())" @select="store.selectCommit" @more="store.loadMore" />
@@ -140,7 +155,7 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
       <div class="welcome-mark"><img src="/graft-icon.png" alt="" /></div>
       <h1>Open a Git repository</h1>
       <p>Inspect history, prepare precise commits, and move between worktrees without the weight of an IDE.</p>
-      <button class="primary-button welcome-open" :disabled="store.loading" @click="store.chooseRepository"><FolderOpen :size="15" />{{ store.loading ? 'Opening…' : 'Open Repository…' }}</button>
+      <button class="primary-button welcome-open" :disabled="store.loading" @click="store.chooseWorkspace"><FolderOpen :size="15" />{{ store.loading ? 'Opening…' : 'Open Workspace…' }}</button>
       <div class="welcome-notes"><span><kbd>⌘O</kbd> Open</span><span>macOS 26 · Apple silicon</span></div>
     </section>
 
@@ -149,6 +164,7 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
       <span>{{ store.error || store.notice }}</span><X :size="13" />
     </button>
     <WorktreeDialog v-if="worktreeDialog && store.repository" :repository="store.repository" @close="worktreeDialog = false" @complete="worktreeComplete" />
+    <MonoRepoWorktreesDialog v-if="monoRepoWorktrees && store.workspace?.kind === 'monorepo'" :workspace="store.workspace" @close="monoRepoWorktrees = false" @complete="store.notify($event)" />
     <HistoryOperationDialog v-if="historyOperation && store.repository" :repository-path="store.repository.root" :operation="historyOperation" :initial-target="historyOperation === 'merge' ? '' : store.selectedCommit?.oid" @close="historyOperation = undefined" @complete="operationComplete" />
     <ConflictResolver v-if="conflictFile && store.repository" :repository-path="store.repository.root" :file="conflictFile" @close="conflictFile = ''" @complete="conflictComplete" />
     <RebaseDialog v-if="rebaseDialog && store.repository" :repository-path="store.repository.root" @close="rebaseDialog = false" @complete="rebaseComplete" />

@@ -47,6 +47,8 @@ Graft checks GitHub Releases when it starts. When a signed update is available, 
 - Merge, cherry-pick, revert, reset, and interactive rebase
 - Three-way conflict resolution with continue and abort controls
 - First-class worktrees: create, open, lock, unlock, remove, and prune
+- Workspace navigation with Mono Repo child-repository switching and batch worktree creation
+- One-click repository opening in detected Warp, iTerm2, or macOS Terminal installations
 - Native repository watching and multi-window worktree navigation
 - No telemetry
 

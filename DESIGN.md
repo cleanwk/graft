@@ -182,7 +182,7 @@ Theme selection lives in the titlebar, persists across launches, and never chang
 
 ## Layout
 
-The repository workspace fills the window and uses a fixed shell: a 52px titlebar, flexible working row, and 23px status bar. Its default columns are a 222px repository sidebar, a center workspace with a 420px minimum, a 286px commit tool, and a 31px vertical tool stripe. The center divides into a 39px action toolbar, 23px column header, a commit graph that receives 46% of the remaining height, and a diff/detail panel that receives 54%.
+The repository workspace fills the window and uses a fixed shell: a 52px titlebar, flexible working row, and 23px status bar. The titlebar establishes context from left to right: selected Workspace first, active branch second, workspace-scoped actions next, and terminal plus repository transport actions at the right. It never repeats the repository name in a centered title. Its default columns are a 222px repository sidebar, a center workspace with a 420px minimum, a 286px commit tool, and a 31px vertical tool stripe. The center divides into a 39px action toolbar, 23px column header, a commit graph that receives 46% of the remaining height, and a diff/detail panel that receives 54%.
 
 Rows use an IDEA-like compact rhythm: commit and rebase rows are 31px, repository and change rows are 25–27px, and standard controls are 28–29px. Persistent panes touch edge to edge and are separated by one-pixel rules. Side panels collapse completely instead of becoming floating drawers, preserving the center graph as the main working surface.
 
@@ -240,7 +240,7 @@ Graft uses small radii that follow control scale: 4px for rows, tags, and compac
 
 ### Navigation
 
-Repository navigation uses 25–27px tree rows with disclosure chevrons, Lucide line icons, counts, and nested 18px indentation. Hover uses Hover Steel; the current branch uses Selected Cobalt Mist plus a cobalt icon and the word “current.” The far-right tool stripe rotates labels vertically, keeps icons upright, and marks the active tool with a 2px cobalt edge bar.
+Repository navigation begins directly below the titlebar and uses 25–27px tree rows with disclosure chevrons, Lucide line icons, counts, and nested 18px indentation. A regular Workspace begins with Branches; a Mono Repo begins with a Repositories group whose selected child determines the Branches, Remotes, Tags, Worktrees, history, diff, and terminal path shown elsewhere. Hover uses Hover Steel; the current branch uses Selected Cobalt Mist plus a cobalt icon and the word “current.” The far-right tool stripe rotates labels vertically, keeps icons upright, and marks the active tool with a 2px cobalt edge bar.
 
 ### Commit Graph & Diff
 
@@ -248,7 +248,7 @@ The commit log is a virtualized 31px row grid with a fixed 72px SVG topology lan
 
 ### Operation Dialogs
 
-Routine creation and history actions use compact 480px dialogs; interactive rebase, hunk selection, and conflict resolution expand into wide, task-specific workspaces. Dialogs retain the same surface roles, control scale, field behavior, and exact Git vocabulary as the main shell. Destructive scope appears inline before the action and changes the confirmation label and color.
+Routine creation and history actions use compact 480px dialogs; interactive rebase, hunk selection, conflict resolution, and multi-repository worktree creation expand into wide, task-specific workspaces. The Workspace Worktrees dialog exposes repository scope, starting-point policy, target directory, progress, and per-repository outcomes in one surface; partial retries select only failed repositories. Dialogs retain the same surface roles, control scale, field behavior, and exact Git vocabulary as the main shell. Destructive scope appears inline before the action and changes the confirmation label and color.
 
 ## Do's and Don'ts
 
@@ -260,6 +260,7 @@ Routine creation and history actions use compact 480px dialogs; interactive reba
 - **Do** pair Lucide line icons and semantic colors with explicit labels, letters, counts, or action wording.
 - **Do** make dangerous operations deliberate with visible scope, precise Git terms, and recovery guidance.
 - **Do** retain focus, increased-contrast, and reduced-motion behavior on every new control or transition.
+- **Do** keep Workspace, active child repository, active branch, and terminal target visibly consistent across every pane and action.
 
 ### Don't:
 

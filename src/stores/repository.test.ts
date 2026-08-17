@@ -4,7 +4,7 @@ import { useRepositoryStore } from "./repository";
 import type { CommitRow } from "../types";
 
 const apiMocks = vi.hoisted(() => ({
-  open: vi.fn(), log: vi.fn(), detail: vi.fn(), watch: vi.fn(),
+  workspace: vi.fn(), open: vi.fn(), log: vi.fn(), detail: vi.fn(), watch: vi.fn(),
 }));
 vi.mock("../lib/bridge", () => ({ api: apiMocks }));
 
@@ -41,5 +41,29 @@ describe("repository store", () => {
     expect(store.selectedCommit?.oid).toBe(first.oid);
     expect(store.detail?.files[0].path).toBe("README.md");
     expect(apiMocks.detail).toHaveBeenCalledWith("/repo", first.oid);
+  });
+
+  it("opens a mono workspace and restores its selected child repository", async () => {
+    const first = commit("Initial", "Kai", "abc1234");
+    apiMocks.workspace.mockResolvedValue({
+      root: "/workspace", name: "workspace", kind: "monorepo",
+      repositories: [
+        { root: "/workspace/alpha", name: "alpha", branch: "main" },
+        { root: "/workspace/beta", name: "beta", branch: "release" },
+      ],
+    });
+    vi.mocked(localStorage.getItem).mockImplementation((key: string) => key === "graft.workspaceRepository:/workspace" ? "/workspace/beta" : null);
+    apiMocks.open.mockResolvedValue({ root: "/workspace/beta", name: "beta", branch: "release", changes: [], branches: [], tags: [], remotes: [], worktrees: [], state: {} });
+    apiMocks.log.mockResolvedValue({ commits: [first], hasMore: false });
+    apiMocks.detail.mockResolvedValue({ oid: first.oid, files: [], patch: "" });
+    apiMocks.watch.mockResolvedValue(undefined);
+
+    const store = useRepositoryStore();
+    await store.loadWorkspace("/workspace");
+
+    expect(store.workspace?.kind).toBe("monorepo");
+    expect(store.repository?.root).toBe("/workspace/beta");
+    expect(apiMocks.open).toHaveBeenCalledWith("/workspace/beta");
+    expect(localStorage.setItem).toHaveBeenCalledWith("graft.lastWorkspace", "/workspace");
   });
 });

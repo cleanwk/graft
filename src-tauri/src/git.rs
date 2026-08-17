@@ -69,6 +69,45 @@ pub struct RepositorySnapshot {
     pub worktrees: Vec<Worktree>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceRepository {
+    pub root: String,
+    pub name: String,
+    pub branch: String,
+    pub latest_tag: Option<String>,
+    pub default_branch: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceSnapshot {
+    pub root: String,
+    pub name: String,
+    pub kind: String,
+    pub repositories: Vec<WorkspaceRepository>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchWorktreeEntry {
+    pub repository: String,
+    pub repository_path: String,
+    pub worktree_path: String,
+    pub base: Option<String>,
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchWorktreeResult {
+    pub target_root: String,
+    pub entries: Vec<BatchWorktreeEntry>,
+    pub succeeded: usize,
+    pub failed: usize,
+}
+
 #[derive(Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepositoryState {
@@ -204,8 +243,109 @@ impl GitService {
         Ok(Self { root: PathBuf::from(root) })
     }
 
+    pub fn discover_workspace(path: impl Into<PathBuf>) -> Result<WorkspaceSnapshot, GitError> {
+        let candidate = path.into();
+        let selected = std::fs::canonicalize(&candidate)
+            .map_err(|error| GitError::NotRepository(format!("{} ({error})", candidate.display())))?;
+        if !selected.is_dir() {
+            return Err(GitError::NotRepository(selected.display().to_string()));
+        }
+
+        if let Ok(repository) = Self::open(&selected) {
+            let root = std::fs::canonicalize(&repository.root).unwrap_or_else(|_| repository.root.clone());
+            if root == selected || selected.starts_with(&root) {
+                let entry = repository.workspace_repository()?;
+                return Ok(WorkspaceSnapshot {
+                    root: root.display().to_string(),
+                    name: root.file_name().and_then(OsStr::to_str).unwrap_or("Workspace").to_owned(),
+                    kind: "repository".into(),
+                    repositories: vec![entry],
+                });
+            }
+        }
+
+        let mut repositories = Vec::new();
+        let children = std::fs::read_dir(&selected)
+            .map_err(|error| GitError::Command(format!("Could not inspect {}: {error}", selected.display())))?;
+        for child in children.flatten() {
+            let child_path = child.path();
+            if !child_path.is_dir() || child.file_name().to_string_lossy().starts_with('.') { continue; }
+            let Ok(repository) = Self::open(&child_path) else { continue; };
+            let repository_root = std::fs::canonicalize(&repository.root).unwrap_or_else(|_| repository.root.clone());
+            let child_root = std::fs::canonicalize(&child_path).unwrap_or(child_path);
+            if repository_root == child_root && let Ok(entry) = repository.workspace_repository() {
+                repositories.push(entry);
+            }
+        }
+        repositories.sort_by(|left, right| left.name.to_lowercase().cmp(&right.name.to_lowercase()));
+        if repositories.is_empty() { return Err(GitError::NotRepository(selected.display().to_string())); }
+        Ok(WorkspaceSnapshot {
+            root: selected.display().to_string(),
+            name: selected.file_name().and_then(OsStr::to_str).unwrap_or("Workspace").to_owned(),
+            kind: "monorepo".into(),
+            repositories,
+        })
+    }
+
+    pub fn create_workspace_worktrees(
+        workspace_path: &str,
+        selected_repositories: &[String],
+        target_root: &str,
+        basis: &str,
+    ) -> Result<BatchWorktreeResult, GitError> {
+        if !matches!(basis, "latestTag" | "defaultBranch") {
+            return Err(GitError::Unsupported(format!("worktree basis {basis}")));
+        }
+        let workspace = Self::discover_workspace(workspace_path)?;
+        if workspace.kind != "monorepo" { return Err(GitError::Unsupported("batch worktrees require a Mono Repo workspace".into())); }
+        let target = PathBuf::from(target_root);
+        if target.as_os_str().is_empty() { return Err(GitError::Command("Worktree directory cannot be empty.".into())); }
+        std::fs::create_dir_all(&target)
+            .map_err(|error| GitError::Command(format!("Could not create {}: {error}", target.display())))?;
+        let allowed: std::collections::HashMap<_, _> = workspace.repositories.into_iter()
+            .map(|repository| (repository.root.clone(), repository)).collect();
+        let mut entries = Vec::new();
+
+        for repository_path in selected_repositories {
+            let canonical_repository_path = std::fs::canonicalize(repository_path)
+                .unwrap_or_else(|_| PathBuf::from(repository_path)).display().to_string();
+            let Some(repository_info) = allowed.get(&canonical_repository_path) else {
+                entries.push(BatchWorktreeEntry {
+                    repository: Path::new(repository_path).file_name().and_then(OsStr::to_str).unwrap_or("Repository").into(),
+                    repository_path: repository_path.clone(), worktree_path: String::new(), base: None, success: false,
+                    message: "Repository is not part of this workspace.".into(),
+                });
+                continue;
+            };
+            let worktree_path = target.join(&repository_info.name);
+            let mut entry = BatchWorktreeEntry {
+                repository: repository_info.name.clone(), repository_path: canonical_repository_path.clone(),
+                worktree_path: worktree_path.display().to_string(), base: None, success: false, message: String::new(),
+            };
+            let result = (|| {
+                if worktree_path.exists() { return Err(GitError::Command(format!("{} already exists", worktree_path.display()))); }
+                let git = Self::open(&canonical_repository_path)?;
+                if !git.run(["remote"])?.trim().is_empty() { git.run(["fetch", "--prune", "--tags"])?; }
+                let latest_tag = git.latest_tag();
+                let default_branch = git.default_branch();
+                let base = if basis == "latestTag" { latest_tag.or(default_branch) } else { default_branch.or(latest_tag) }
+                    .ok_or_else(|| GitError::Command("No tag or default branch is available.".into()))?;
+                git.run_owned(vec!["worktree".into(), "add".into(), "--detach".into(), worktree_path.display().to_string(), base.clone()])?;
+                Ok::<String, GitError>(base)
+            })();
+            match result {
+                Ok(base) => { entry.base = Some(base.clone()); entry.success = true; entry.message = format!("Created from {base}"); }
+                Err(error) => { entry.message = error.to_string(); }
+            }
+            entries.push(entry);
+        }
+        let succeeded = entries.iter().filter(|entry| entry.success).count();
+        let failed = entries.len() - succeeded;
+        Ok(BatchWorktreeResult { target_root: target.display().to_string(), entries, succeeded, failed })
+    }
+
     pub fn snapshot(&self) -> Result<RepositorySnapshot, GitError> {
-        let (status, changes_truncated) = self.status_limited(2_000)?;
+        let (status, changes_truncated) = self.status_limited(500)?;
         let (branch, head, upstream, ahead, behind, changes) = parse_status(&status);
         let conflicts = changes.iter().filter(|change| change.conflicted).count();
         let git_dir = self.run(["rev-parse", "--git-dir"])?;
@@ -239,6 +379,32 @@ impl GitService {
             remotes: lines(self.run(["remote"])?) ,
             worktrees: self.worktrees()?,
         })
+    }
+
+    fn workspace_repository(&self) -> Result<WorkspaceRepository, GitError> {
+        let branch = self.run(["branch", "--show-current"] )?.trim().to_owned();
+        Ok(WorkspaceRepository {
+            root: self.root.display().to_string(),
+            name: self.root.file_name().and_then(OsStr::to_str).unwrap_or("Repository").to_owned(),
+            branch: if branch.is_empty() { "Detached HEAD".into() } else { branch },
+            latest_tag: self.latest_tag(),
+            default_branch: self.default_branch(),
+        })
+    }
+
+    fn latest_tag(&self) -> Option<String> {
+        self.run(["tag", "--sort=-creatordate"]).ok().and_then(|value| lines(value).into_iter().next())
+    }
+
+    fn default_branch(&self) -> Option<String> {
+        if let Ok(value) = self.run(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]) {
+            let value = value.trim(); if !value.is_empty() { return Some(value.to_owned()); }
+        }
+        for candidate in ["origin/master", "origin/main", "master", "main"] {
+            if self.run(["rev-parse", "--verify", "--quiet", candidate]).is_ok() { return Some(candidate.into()); }
+        }
+        let current = self.run(["branch", "--show-current"]).ok()?.trim().to_owned();
+        (!current.is_empty()).then_some(current)
     }
 
     pub fn log_page(&self, skip: usize, limit: usize) -> Result<LogPage, GitError> {
@@ -676,12 +842,12 @@ fn title_case(value: &str) -> String { let mut chars = value.chars(); chars.next
 fn operation_label(value: &str) -> &str { match value { "cherryPick" => "Cherry-pick", value => value } }
 
 fn bounded_patch(mut patch: String) -> String {
-    const MAX_PATCH_BYTES: usize = 2 * 1024 * 1024;
+    const MAX_PATCH_BYTES: usize = 512 * 1024;
     if patch.len() <= MAX_PATCH_BYTES { return patch; }
     let mut end = MAX_PATCH_BYTES;
     while !patch.is_char_boundary(end) { end -= 1; }
     patch.truncate(end);
-    patch.push_str("\n\n[Diff truncated at 2 MiB. Open the file or use system Git for the complete patch.]\n");
+    patch.push_str("\n\n[Diff truncated at 512 KiB to protect application memory. Open the file or use system Git for the complete patch.]\n");
     patch
 }
 
@@ -699,6 +865,42 @@ mod tests {
         Command::new("git").args(["add", "."]).current_dir(dir.path()).output().unwrap();
         Command::new("git").args(["commit", "-m", "Initial commit"]).current_dir(dir.path()).output().unwrap();
         dir
+    }
+
+    fn initialize_repository(path: &Path, branch: &str) {
+        Command::new("git").args(["init", "-b", branch]).current_dir(path).output().unwrap();
+        Command::new("git").args(["config", "user.name", "Graft Test"]).current_dir(path).output().unwrap();
+        Command::new("git").args(["config", "user.email", "graft@example.test"]).current_dir(path).output().unwrap();
+        fs::write(path.join("README.md"), "workspace\n").unwrap();
+        Command::new("git").args(["add", "."]).current_dir(path).output().unwrap();
+        Command::new("git").args(["commit", "-m", "Initial"]).current_dir(path).output().unwrap();
+    }
+
+    #[test]
+    fn workspace_discovers_immediate_git_repositories() {
+        let workspace = tempfile::tempdir().unwrap();
+        let alpha = workspace.path().join("alpha"); let beta = workspace.path().join("beta");
+        fs::create_dir(&alpha).unwrap(); fs::create_dir(&beta).unwrap();
+        initialize_repository(&alpha, "main"); initialize_repository(&beta, "main");
+
+        let discovered = GitService::discover_workspace(workspace.path()).unwrap();
+        assert_eq!(discovered.kind, "monorepo");
+        assert_eq!(discovered.repositories.iter().map(|repository| repository.name.as_str()).collect::<Vec<_>>(), ["alpha", "beta"]);
+    }
+
+    #[test]
+    fn workspace_creates_one_detached_worktree_per_selected_repository() {
+        let workspace = tempfile::tempdir().unwrap();
+        let alpha = workspace.path().join("alpha"); let beta = workspace.path().join("beta");
+        fs::create_dir(&alpha).unwrap(); fs::create_dir(&beta).unwrap();
+        initialize_repository(&alpha, "master"); initialize_repository(&beta, "main");
+        let target = workspace.path().join("Worktree");
+
+        let result = GitService::create_workspace_worktrees(
+            workspace.path().to_str().unwrap(), &[alpha.display().to_string()], target.to_str().unwrap(), "defaultBranch",
+        ).unwrap();
+        assert_eq!((result.succeeded, result.failed), (1, 0), "{:?}", result.entries);
+        assert!(target.join("alpha/README.md").exists());
     }
 
     #[test]
