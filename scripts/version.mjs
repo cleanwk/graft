@@ -31,6 +31,13 @@ const cargoVersion = cargo.match(/^version = "([^"]+)"/m)?.[1];
 observed.push(["src-tauri/Cargo.toml", cargoVersion]);
 if (!checkOnly) await writeFile(cargoUrl, cargo.replace(/^version = "[^"]+"/m, `version = "${version}"`));
 
+const cargoLockUrl = new URL("src-tauri/Cargo.lock", root);
+const cargoLock = await readFile(cargoLockUrl, "utf8");
+const graftPackage = /(\[\[package\]\]\nname = "graft"\nversion = ")([^"]+)(")/;
+const cargoLockVersion = cargoLock.match(graftPackage)?.[2];
+observed.push(["src-tauri/Cargo.lock (graft package)", cargoLockVersion]);
+if (!checkOnly) await writeFile(cargoLockUrl, cargoLock.replace(graftPackage, `$1${version}$3`));
+
 if (checkOnly) {
   const mismatches = observed.filter(([, current]) => current !== version);
   if (mismatches.length) {
