@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { confirm, open } from "@tauri-apps/plugin-dialog";
-import { ExternalLink, Lock, RefreshCw, Trash2, Unlock, X } from "@lucide/vue";
+import { ExternalLink, Lock, RefreshCw, Search, Trash2, Unlock, X } from "@lucide/vue";
 import { api } from "../lib/bridge";
 import type { RepositorySnapshot } from "../types";
 
@@ -12,6 +12,16 @@ const localBranches = props.repository.branches.filter((branch) => !branch.remot
 const availableBranches = localBranches.filter((branch) => !usedBranches.has(branch.name));
 const selectedBranch = ref(availableBranches[0]?.name ?? props.repository.branch);
 const createBranch = ref(!availableBranches.length); const branchName = ref(""); const busy = ref(false); const error = ref("");
+const search = ref("");
+const filteredWorktrees = computed(() => {
+  const needle = search.value.trim().toLowerCase();
+  if (!needle) return props.repository.worktrees;
+  return props.repository.worktrees.filter((worktree) => `${worktree.branch ?? "detached head"} ${worktree.path} ${worktree.head}`.toLowerCase().includes(needle));
+});
+const filteredBranches = computed(() => {
+  const needle = search.value.trim().toLowerCase();
+  return needle ? localBranches.filter((branch) => branch.name.toLowerCase().includes(needle)) : localBranches;
+});
 const targetBranch = computed(() => createBranch.value ? branchName.value.trim() : selectedBranch.value);
 const suggestedPath = (branch: string) => `${props.repository.root}-worktrees/${branch.replaceAll('/', '-')}`;
 const path = ref(suggestedPath(targetBranch.value));
@@ -45,20 +55,22 @@ async function openWindow(worktreePath: string) { await api.openWindow(worktreeP
   <div class="dialog-backdrop" @mousedown.self="emit('close')">
     <form class="dialog" role="dialog" aria-modal="true" aria-labelledby="worktree-title" @submit.prevent="submit">
       <header><h2 id="worktree-title">Worktrees</h2><button type="button" class="icon-button" aria-label="Close" @click="emit('close')"><X :size="15" /></button></header>
+      <div class="dialog-search"><Search :size="13" /><input v-model="search" type="search" aria-label="Search worktrees and branches" placeholder="Search worktrees and branches" /><button v-if="search" type="button" aria-label="Clear search" @click="search = ''"><X :size="12" /></button></div>
       <div class="worktree-manager">
-        <div v-for="worktree in repository.worktrees" :key="worktree.path" class="worktree-manage-row">
+        <div v-for="worktree in filteredWorktrees" :key="worktree.path" class="worktree-manage-row">
           <div><strong>{{ worktree.branch ?? 'Detached HEAD' }}</strong><span>{{ worktree.path }}</span></div>
           <em v-if="worktree.path === repository.root">Current</em><em v-else-if="worktree.locked">Locked</em>
           <button type="button" title="Open in new window" aria-label="Open worktree in new window" @click="openWindow(worktree.path)"><ExternalLink :size="13" /></button>
           <button v-if="worktree.path !== repository.root" type="button" :title="worktree.locked ? 'Unlock' : 'Lock'" :aria-label="worktree.locked ? 'Unlock worktree' : 'Lock worktree'" @click="action(worktree.locked ? 'unlock' : 'lock', worktree.path)"><Unlock v-if="worktree.locked" :size="13" /><Lock v-else :size="13" /></button>
           <button v-if="worktree.path !== repository.root" type="button" title="Remove worktree" aria-label="Remove worktree" class="danger-icon" @click="action('remove', worktree.path)"><Trash2 :size="13" /></button>
         </div>
+        <p v-if="!filteredWorktrees.length" class="empty-filter">No matching worktrees.</p>
         <button type="button" class="prune-button" @click="action('prune')"><RefreshCw :size="12" />Prune stale entries</button>
       </div>
       <p class="worktree-add-intro">Add a worktree without disturbing the branch and changes in this window.</p>
       <label class="field-label">Branch</label>
       <select v-model="selectedBranch" :disabled="createBranch" aria-label="Worktree branch">
-        <option v-for="branch in localBranches" :key="branch.name" :value="branch.name" :disabled="usedBranches.has(branch.name)">{{ branch.name }}{{ usedBranches.has(branch.name) ? ' — already checked out' : '' }}</option>
+        <option v-for="branch in filteredBranches" :key="branch.name" :value="branch.name" :disabled="usedBranches.has(branch.name)">{{ branch.name }}{{ usedBranches.has(branch.name) ? ' — already checked out' : '' }}</option>
       </select>
       <label class="checkbox-row"><input v-model="createBranch" type="checkbox" />Create a new branch</label>
       <input v-if="createBranch" v-model="branchName" placeholder="feature/my-work" aria-label="New branch name" />

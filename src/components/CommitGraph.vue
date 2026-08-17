@@ -12,6 +12,8 @@ const virtualizer = useVirtualizer(computed(() => ({ count: props.commits.length
 const colors = Array.from({ length: 8 }, (_, index) => `var(--graph-${index + 1})`);
 const graphRows = computed(() => allocateGraphRows(props.commits, colors.length));
 const branchTransitions = (index: number) => graphRows.value[index].parentLanes.filter((lane) => lane !== graphRows.value[index].lane);
+const laneX = (lane: number) => 8 + lane * 8;
+const transitionPath = (from: number, to: number) => `M ${laneX(from)} 15.5 C ${laneX(from)} 23, ${laneX(to)} 23, ${laneX(to)} 31`;
 
 function onScroll() {
   const element = scroller.value;
@@ -35,7 +37,7 @@ function onScroll() {
           <svg viewBox="0 0 72 31" preserveAspectRatio="none">
             <line v-for="lane in graphRows[row.index].before" :key="`before-${lane}`" :x1="8 + (lane - 1) * 8" y1="0" :x2="8 + (lane - 1) * 8" y2="15.5" :stroke="colors[(lane - 1) % colors.length]" />
             <line v-for="lane in graphRows[row.index].nextLanes" :key="`after-${lane}`" :x1="8 + lane * 8" y1="15.5" :x2="8 + lane * 8" y2="31" :stroke="colors[lane % colors.length]" />
-            <line v-for="parentLane in branchTransitions(row.index)" :key="`parent-${parentLane}`" :x1="8 + graphRows[row.index].lane * 8" y1="15.5" :x2="8 + parentLane * 8" y2="31" :stroke="colors[parentLane % colors.length]" />
+            <path v-for="parentLane in branchTransitions(row.index)" :key="`parent-${parentLane}`" :d="transitionPath(graphRows[row.index].lane, parentLane)" :stroke="colors[parentLane % colors.length]" />
             <circle :cx="8 + graphRows[row.index].lane * 8" cy="15.5" r="4" fill="var(--commit-row-fill)" :stroke="colors[graphRows[row.index].lane % colors.length]" stroke-width="2" />
           </svg>
         </span>

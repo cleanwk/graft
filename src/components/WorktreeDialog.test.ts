@@ -34,4 +34,12 @@ describe("WorktreeDialog", () => {
     await branch.setValue("review");
     expect(wrapper.get<HTMLInputElement>('.path-field input').element.value).toBe("/repos/graft-worktrees/review");
   });
+
+  it("filters worktrees and branch choices from one search field", async () => {
+    const wrapper = mount(WorktreeDialog, { props: { repository } });
+    await wrapper.get<HTMLInputElement>('input[aria-label="Search worktrees and branches"]').setValue("review");
+
+    expect(wrapper.text()).toContain("No matching worktrees.");
+    expect(wrapper.findAll("option").map((option) => option.text())).toEqual(["review"]);
+  });
 });

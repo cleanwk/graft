@@ -15,6 +15,7 @@ import UpdateBanner from "./components/UpdateBanner.vue";
 import { useRepositoryStore } from "./stores/repository";
 import { api } from "./lib/bridge";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { failureMessage } from "./stores/repository";
 import { themes, useTheme } from "./lib/theme";
 
 const store = useRepositoryStore();
@@ -38,8 +39,8 @@ function operationComplete(message: string) { historyOperation.value = undefined
 function conflictComplete(message: string) { conflictFile.value = ""; store.notice = message; store.refresh(); }
 function rebaseComplete(message: string) { rebaseDialog.value = false; store.notice = message; store.refresh(); }
 function referenceComplete(message: string) { newReference.value = undefined; store.notice = message; store.refresh(); }
-async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); } }
-async function openWorktree(path: string) { try { await api.openWindow(path); } catch (caught) { store.error = String(caught); } }
+async function checkout(branch: string) { if (!store.repository) return; try { const result = await api.checkout(store.repository.root, branch, false); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = failureMessage(caught); } }
+async function openWorktree(path: string) { try { await api.openWindow(path); } catch (caught) { store.error = failureMessage(caught); } }
 async function finishOperation(action: "continue" | "abort") { if (!store.repository || !activeOperation.value) return; try { const result = await api.finishOperation(store.repository.root, activeOperation.value, action); store.notice = result.summary; await store.refresh(); } catch (caught) { store.error = String(caught); await store.refresh(); } }
 function shortcuts(event: KeyboardEvent) { if (!event.metaKey) return; if (event.key.toLowerCase() === "o") { event.preventDefault(); store.chooseRepository(); } else if (event.key.toLowerCase() === "f") { event.preventDefault(); searchInput.value?.focus(); } else if (event.key === "Enter") { event.preventDefault(); commitTool.value?.submit(); } }
 function fitPaneWidths() {
@@ -84,34 +85,25 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
 
 <template>
   <main class="app-shell" :class="{ 'sidebar-hidden': !showSidebar, 'commit-hidden': !showCommit }" :style="shellStyle">
-    <header class="titlebar" data-tauri-drag-region>
-      <div class="titlebar-leading">
-        <div class="traffic-space" data-tauri-drag-region />
-        <button class="icon-button" title="Show or hide repository tree" aria-label="Toggle repository tree" @click="showSidebar = !showSidebar"><PanelLeftClose :size="15" /></button>
-        <button class="icon-button" title="Open repository" aria-label="Open repository" @click="store.chooseRepository"><FolderOpen :size="15" /></button>
-        <div v-if="store.repository" class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span></div>
-      </div>
-      <div class="titlebar-center" data-tauri-drag-region>{{ store.repository?.name ?? 'Graft' }}</div>
-      <div class="toolbar-actions">
-        <label class="theme-picker" title="Appearance"><Palette :size="14" /><select v-model="theme" aria-label="Appearance theme"><option v-for="item in themes" :key="item.id" :value="item.id">{{ item.label }}</option></select><ChevronDown :size="11" /></label>
-        <button :disabled="!store.repository" @click="store.remote('fetch')"><ArrowDownToLine :size="14" /><span>Fetch</span></button>
-        <button :disabled="!store.repository" @click="store.remote('pull')"><GitPullRequestArrow :size="14" /><span>Pull</span></button>
-        <button :disabled="!store.repository" @click="store.remote('push')"><ArrowUpFromLine :size="14" /><span>Push</span></button>
-        <button class="icon-button" :disabled="!store.repository" title="Refresh" aria-label="Refresh repository" @click="store.refresh"><RefreshCw :size="14" /></button>
-      </div>
-    </header>
-
     <template v-if="store.repository">
       <RepositorySidebar v-if="showSidebar" :repository="store.repository" @add-worktree="worktreeDialog = true" @add-reference="newReference = $event" @checkout="checkout" @open-worktree="openWorktree" />
       <div v-if="showSidebar" class="pane-resizer sidebar-resizer" role="separator" aria-label="Resize repository sidebar" aria-orientation="vertical" :aria-valuenow="Math.round(sidebarWidth)" aria-valuemin="176" aria-valuemax="360" tabindex="0" title="Drag to resize repository sidebar" @pointerdown="startPaneResize('sidebar', $event)" @keydown="resizePaneWithKeyboard('sidebar', $event)" />
       <section class="workspace">
         <div class="log-toolbar">
+          <button class="icon-button" title="Show or hide repository tree" aria-label="Toggle repository tree" @click="showSidebar = !showSidebar"><PanelLeftClose :size="15" /></button>
+          <button class="icon-button" title="Open repository" aria-label="Open repository" @click="store.chooseRepository"><FolderOpen :size="15" /></button>
+          <div class="branch-button"><GitBranch :size="13" /><strong>{{ store.repository.branch }}</strong><span>{{ branchState }}</span></div>
           <div class="search-field"><Search :size="13" /><input ref="searchInput" v-model="store.query" aria-label="Search commits" placeholder="Search commits" /><button v-if="store.query" aria-label="Clear search" @click="store.query = ''"><X :size="12" /></button><kbd>⌘F</kbd></div>
           <button title="Merge a branch into the current branch" @click="historyOperation = 'merge'"><GitMerge :size="13" />Merge</button>
           <button title="Interactively rebase the current branch" @click="rebaseDialog = true">Rebase…</button>
           <button :disabled="!store.selectedCommit" title="Cherry-pick selected commit" @click="historyOperation = 'cherryPick'">Cherry-pick</button>
           <button :disabled="!store.selectedCommit" title="Revert selected commit" @click="historyOperation = 'revert'"><RotateCcw :size="12" />Revert</button>
           <button :disabled="!store.selectedCommit" title="Reset current branch to selected commit" @click="historyOperation = 'reset'">Reset…</button>
+          <span class="toolbar-separator" />
+          <button title="Fetch from remotes" @click="store.remote('fetch')"><ArrowDownToLine :size="13" />Fetch</button>
+          <button title="Pull current branch" @click="store.remote('pull')"><GitPullRequestArrow :size="13" />Pull</button>
+          <button title="Push current branch" @click="store.remote('push')"><ArrowUpFromLine :size="13" />Push</button>
+          <label class="theme-picker compact" title="Appearance"><Palette :size="13" /><select v-model="theme" aria-label="Appearance theme"><option v-for="item in themes" :key="item.id" :value="item.id">{{ item.label }}</option></select><ChevronDown :size="10" /></label>
           <span class="history-count">{{ store.commits.length.toLocaleString() }} loaded</span>
         </div>
         <div class="log-columns" aria-hidden="true"><span>Graph &amp; Commit</span><span>Author</span><span>Hash</span><span>Date</span></div>

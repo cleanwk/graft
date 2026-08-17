@@ -6,7 +6,7 @@ import type { CommandFailure, CommitDetail, CommitRow, RepositorySnapshot } from
 
 const PAGE_SIZE = 500;
 
-function failureMessage(error: unknown): string {
+export function failureMessage(error: unknown): string {
   if (typeof error === "string") return error;
   const value = error as CommandFailure;
   return [value?.message ?? (error as Error)?.message ?? "The operation failed.", value?.recovery].filter(Boolean).join(" ");

@@ -1,6 +1,6 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useRepositoryStore } from "./repository";
+import { failureMessage, useRepositoryStore } from "./repository";
 import type { CommitRow } from "../types";
 
 const apiMocks = vi.hoisted(() => ({
@@ -17,6 +17,10 @@ describe("repository store", () => {
     setActivePinia(createPinia());
     vi.stubGlobal("localStorage", { getItem: vi.fn(), setItem: vi.fn() });
     vi.clearAllMocks();
+  });
+
+  it("formats structured command failures instead of object coercion", () => {
+    expect(failureMessage({ message: "Checkout failed.", recovery: "Commit changes first." })).toBe("Checkout failed. Commit changes first.");
   });
 
   it("filters loaded commits by message, author, hash, and ref", () => {
