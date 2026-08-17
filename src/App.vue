@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Archive, ArrowDownToLine, ArrowUpFromLine, Check, Cherry, ChevronDown, CircleAlert, FolderOpen, GitBranch, GitCompareArrows, GitMerge, GitPullRequestArrow, History, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
+import { Archive, ArrowDownToLine, ArrowUpFromLine, Check, Cherry, ChevronDown, CircleAlert, Download, FolderOpen, GitBranch, GitCompareArrows, GitMerge, GitPullRequestArrow, History, LoaderCircle, Palette, PanelLeftClose, RefreshCw, RotateCcw, Search, TreePine, X } from "@lucide/vue";
 import CommitGraph from "./components/CommitGraph.vue";
 import CommitPanel from "./components/CommitPanel.vue";
 import CommitToolWindow from "./components/CommitToolWindow.vue";
@@ -24,6 +24,7 @@ const rebaseDialog = ref(false);
 const hunkFile = ref("");
 const newReference = ref<"branch" | "tag" | "remote">();
 const searchInput = ref<HTMLInputElement>();
+const updateBanner = ref<InstanceType<typeof UpdateBanner>>();
 const theme = useTheme();
 const sidebarWidth = ref(Number(localStorage.getItem("graft.sidebarWidth")) || 222);
 const commitWidth = ref(Number(localStorage.getItem("graft.commitWidth")) || 286);
@@ -95,6 +96,7 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
       <div class="titlebar-center" data-tauri-drag-region>{{ store.repository?.name ?? 'Graft' }}</div>
       <div class="toolbar-actions">
         <label class="theme-picker" title="Appearance"><Palette :size="14" /><select v-model="theme" aria-label="Appearance theme"><option v-for="item in themes" :key="item.id" :value="item.id">{{ item.label }}</option></select><ChevronDown :size="11" /></label>
+        <button class="icon-button" title="Check for updates" aria-label="Check for updates" @click="updateBanner?.checkForUpdate(true)"><Download :size="14" /></button>
         <button :disabled="!store.repository" @click="store.remote('fetch')"><ArrowDownToLine :size="14" /><span>Fetch</span></button>
         <button :disabled="!store.repository" @click="store.remote('pull')"><GitPullRequestArrow :size="14" /><span>Pull</span></button>
         <button :disabled="!store.repository" @click="store.remote('push')"><ArrowUpFromLine :size="14" /><span>Push</span></button>
@@ -152,6 +154,6 @@ onBeforeUnmount(() => { window.removeEventListener("resize", fitPaneWidths); win
     <RebaseDialog v-if="rebaseDialog && store.repository" :repository-path="store.repository.root" @close="rebaseDialog = false" @complete="rebaseComplete" />
     <HunkSelector v-if="hunkFile && store.repository" :repository-path="store.repository.root" :file="hunkFile" @close="hunkFile = ''" @changed="store.repository = $event" />
     <NewReferenceDialog v-if="newReference && store.repository" :repository-path="store.repository.root" :kind="newReference" @close="newReference = undefined" @complete="referenceComplete" />
-    <UpdateBanner />
+    <UpdateBanner ref="updateBanner" />
   </main>
 </template>

@@ -4,7 +4,12 @@ const root = new URL("../", import.meta.url);
 const requested = process.argv[2];
 const checkOnly = requested === "--check";
 const packageJson = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
-const version = checkOnly ? packageJson.version : requested;
+const patchBump = requested === "--patch";
+const version = checkOnly
+  ? packageJson.version
+  : patchBump
+    ? packageJson.version.replace(/^(\d+)\.(\d+)\.(\d+)$/, (_, major, minor, patch) => `${major}.${minor}.${Number(patch) + 1}`)
+    : requested;
 
 if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
   console.error("Usage: npm run version:set -- <semver>");
@@ -30,6 +35,13 @@ const cargo = await readFile(cargoUrl, "utf8");
 const cargoVersion = cargo.match(/^version = "([^"]+)"/m)?.[1];
 observed.push(["src-tauri/Cargo.toml", cargoVersion]);
 if (!checkOnly) await writeFile(cargoUrl, cargo.replace(/^version = "[^"]+"/m, `version = "${version}"`));
+
+const cargoLockUrl = new URL("src-tauri/Cargo.lock", root);
+const cargoLock = await readFile(cargoLockUrl, "utf8");
+const graftPackage = /(\[\[package\]\]\nname = "graft"\nversion = ")([^"]+)(")/;
+const cargoLockVersion = cargoLock.match(graftPackage)?.[2];
+observed.push(["src-tauri/Cargo.lock (graft package)", cargoLockVersion]);
+if (!checkOnly) await writeFile(cargoLockUrl, cargoLock.replace(graftPackage, `$1${version}$3`));
 
 if (checkOnly) {
   const mismatches = observed.filter(([, current]) => current !== version);

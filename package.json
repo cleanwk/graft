@@ -1,7 +1,7 @@
 {
   "name": "graft",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
     "app:build": "tauri build --target aarch64-apple-darwin",
     "check": "npm run version:check && npm run build && npm run test && cargo test --manifest-path src-tauri/Cargo.toml",
     "version:set": "node scripts/version.mjs",
+    "version:bump": "node scripts/version.mjs --patch",
     "version:check": "node scripts/version.mjs --check"
   },
   "dependencies": {
