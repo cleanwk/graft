@@ -55,7 +55,7 @@ function onKeydown(event: KeyboardEvent) {
       >
         <span class="graph-cell" aria-hidden="true">
           <svg viewBox="0 0 72 31" preserveAspectRatio="none">
-            <line v-for="lane in graphRows[row.index].before" :key="`before-${lane}`" :x1="8 + (lane - 1) * 8" y1="0" :x2="8 + (lane - 1) * 8" y2="15.5" :stroke="colors[(lane - 1) % colors.length]" />
+            <line v-for="lane in graphRows[row.index].before" :key="`before-${lane}`" :x1="8 + (lane - 1) * 8" y1="-0.5" :x2="8 + (lane - 1) * 8" y2="15.5" :stroke="colors[(lane - 1) % colors.length]" />
             <line v-for="lane in graphRows[row.index].nextLanes" :key="`after-${lane}`" :x1="8 + lane * 8" y1="15.5" :x2="8 + lane * 8" y2="31" :stroke="colors[lane % colors.length]" />
             <line v-for="parentLane in branchTransitions(row.index)" :key="`parent-${parentLane}`" :x1="8 + graphRows[row.index].lane * 8" y1="15.5" :x2="8 + parentLane * 8" y2="31" :stroke="colors[parentLane % colors.length]" />
             <circle :cx="8 + graphRows[row.index].lane * 8" cy="15.5" r="4" fill="var(--commit-row-fill)" :stroke="colors[graphRows[row.index].lane % colors.length]" stroke-width="2" />

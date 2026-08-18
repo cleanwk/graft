@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ChevronRight, FolderGit2, GitBranch, GitFork, Plus, Radio, Tags, TreePine } from "@lucide/vue";
-import type { RepositorySnapshot } from "../types";
+import { Boxes, ChevronRight, GitBranch, GitFork, Plus, Radio, Tags, TreePine } from "@lucide/vue";
+import type { RepositorySnapshot, WorkspaceSnapshot } from "../types";
 
 const LIST_LIMIT = 30;
 
-const props = defineProps<{ repository: RepositorySnapshot }>();
-const emit = defineEmits<{ addWorktree: []; addReference: [kind: "branch" | "tag" | "remote"]; checkout: [branch: string]; openWorktree: [path: string] }>();
-const sections = ref({ branches: true, remotes: true, tags: false, worktrees: true });
+const props = defineProps<{ repository: RepositorySnapshot; workspace?: WorkspaceSnapshot }>();
+const emit = defineEmits<{ addWorktree: []; addReference: [kind: "branch" | "tag" | "remote"]; checkout: [branch: string]; openWorktree: [path: string]; selectRepository: [path: string] }>();
+const sections = ref({ repositories: true, branches: true, remotes: true, tags: false, worktrees: true });
 
 const localBranches = computed(() => props.repository.branches.filter((branch) => !branch.remote));
 const visibleBranches = computed(() => localBranches.value.slice(0, LIST_LIMIT));
@@ -21,11 +21,15 @@ const shortRemoteBranch = (name: string, remote: string) => name.slice(remote.le
 
 <template>
   <aside class="repo-sidebar" aria-label="Repository navigation">
-    <header class="repo-heading">
-      <span class="repo-icon"><FolderGit2 :size="15" /></span>
-      <div><strong>{{ repository.name }}</strong><span>{{ repository.root }}</span></div>
-    </header>
     <nav>
+      <section v-if="workspace?.kind === 'monorepo'" class="workspace-repositories">
+        <div class="tree-heading-row"><button class="tree-heading" :aria-expanded="sections.repositories" @click="sections.repositories = !sections.repositories"><ChevronRight :size="12" :class="{ expanded: sections.repositories }" /><Boxes :size="13" /><span>Repositories</span><b>{{ workspace.repositories.length }}</b></button></div>
+        <div v-if="sections.repositories" class="tree-items">
+          <button v-for="item in workspace.repositories" :key="item.root" :class="{ current: item.root === repository.root }" :title="`${item.root} — select repository`" @click="emit('selectRepository', item.root)">
+            <Boxes :size="12" /><span>{{ item.name }}</span><i v-if="item.root === repository.root">selected</i>
+          </button>
+        </div>
+      </section>
       <section>
         <div class="tree-heading-row"><button class="tree-heading" :aria-expanded="sections.branches" @click="sections.branches = !sections.branches"><ChevronRight :size="12" :class="{ expanded: sections.branches }" /><GitBranch :size="13" /><span>Branches</span><b>{{ localBranches.length }}</b></button><button class="tree-action-button" aria-label="Create branch" title="Create branch" @click="emit('addReference', 'branch')"><Plus :size="13" /></button></div>
         <div v-if="sections.branches" class="tree-items">

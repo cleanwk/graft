@@ -13,9 +13,18 @@ describe("commit graph lane allocation", () => {
       row("base", []),
     ]);
     expect(graph[0].parentLanes).toEqual([0, 1]);
+    expect(graph[0].introducedParentLanes).toEqual([1]);
+    expect(graph[0].nextLanes).toEqual([0]);
     expect(graph[1].lane).toBe(1);
     expect(graph[2].lane).toBe(0);
     expect(graph[3].lane).toBe(0);
+  });
+
+  it("does not draw a redundant vertical stub beside a newly introduced merge parent", () => {
+    const [merge] = allocateGraphRows([row("merge", ["main", "topic"]), row("topic", ["base"]), row("main", ["base"])]);
+    expect(merge.parentLanes).toEqual([0, 1]);
+    expect(merge.introducedParentLanes).toEqual([1]);
+    expect(merge.nextLanes).not.toContain(1);
   });
 
   it("caps presentation lanes without losing commit rows", () => {
@@ -24,4 +33,3 @@ describe("commit graph lane allocation", () => {
     expect(Math.max(...allocateGraphRows(commits, 4).map((item) => item.lane))).toBeLessThan(4);
   });
 });
-

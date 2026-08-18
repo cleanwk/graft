@@ -4,7 +4,7 @@ import { Check, Copy, FileCode2, Files, GitCommitHorizontal } from "@lucide/vue"
 import type { CommitDetail, CommitRow } from "../types";
 import { splitCommitPatch, diffLineClass } from "../lib/diff";
 
-const MAX_PATCH_LINES = 2000;
+const MAX_PATCH_LINES = 1000;
 
 const props = defineProps<{ commit?: CommitRow; detail?: CommitDetail }>();
 const selectedFile = ref("");

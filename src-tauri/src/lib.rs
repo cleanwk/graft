@@ -3,7 +3,7 @@ mod git;
 use git::{GitError, GitService};
 use notify::Watcher;
 use serde::Serialize;
-use std::{collections::HashMap, path::Path, sync::Mutex};
+use std::{collections::HashMap, path::Path, process::Command, sync::Mutex};
 use std::hash::{Hash, Hasher};
 use tauri::{Emitter, Manager};
 
@@ -29,6 +29,15 @@ impl From<GitError> for CommandError {
 }
 
 type CommandResult<T> = Result<T, CommandError>;
+
+#[derive(Debug, Serialize)]
+struct TerminalApp { id: &'static str, name: &'static str }
+
+#[tauri::command]
+async fn open_workspace(path: String) -> CommandResult<git::WorkspaceSnapshot> {
+    tauri::async_runtime::spawn_blocking(move || GitService::discover_workspace(path))
+        .await.map_err(internal_join_error)?.map_err(Into::into)
+}
 
 #[tauri::command]
 async fn open_repository(path: String) -> CommandResult<git::RepositorySnapshot> {
@@ -219,6 +228,37 @@ async fn worktree_action(path: String, action: String, worktree_path: Option<Str
         .await.map_err(internal_join_error)?.map_err(Into::into)
 }
 
+#[tauri::command]
+async fn create_workspace_worktrees(workspace_path: String, repositories: Vec<String>, target_root: String, basis: String) -> CommandResult<git::BatchWorktreeResult> {
+    tauri::async_runtime::spawn_blocking(move || GitService::create_workspace_worktrees(&workspace_path, &repositories, &target_root, &basis))
+        .await.map_err(internal_join_error)?.map_err(Into::into)
+}
+
+#[tauri::command]
+async fn available_terminals() -> Vec<TerminalApp> {
+    tauri::async_runtime::spawn_blocking(|| {
+        [("warp", "Warp", "Warp"), ("iterm2", "iTerm2", "iTerm"), ("terminal", "Terminal", "Terminal")]
+            .into_iter()
+            .filter(|(_, _, application)| Command::new("open").args(["-Ra", application]).status().is_ok_and(|status| status.success()))
+            .map(|(id, name, _)| TerminalApp { id, name })
+            .collect()
+    })
+    .await
+    .unwrap_or_default()
+}
+
+#[tauri::command]
+fn open_in_terminal(path: String, terminal: String) -> CommandResult<()> {
+    let directory = std::fs::canonicalize(&path).map_err(|error| CommandError {
+        kind: "terminal", message: format!("Could not open {path}: {error}"), recovery: Some("Choose an existing repository or workspace path.".into()),
+    })?;
+    if !directory.is_dir() { return Err(CommandError { kind: "terminal", message: format!("{} is not a directory", directory.display()), recovery: None }); }
+    let application = match terminal.as_str() { "warp" => "Warp", "iterm2" => "iTerm", "terminal" => "Terminal", _ => return Err(CommandError { kind: "terminal", message: "Unknown terminal application.".into(), recovery: None }) };
+    let status = Command::new("open").args(["-a", application]).arg(&directory).status()
+        .map_err(|error| CommandError { kind: "terminal", message: error.to_string(), recovery: Some("Open the directory from Finder instead.".into()) })?;
+    if status.success() { Ok(()) } else { Err(CommandError { kind: "terminal", message: format!("{application} could not open {}", directory.display()), recovery: Some("Check that the terminal is installed and try again.".into()) }) }
+}
+
 fn internal_join_error(error: impl std::fmt::Display) -> CommandError {
     CommandError { kind: "internal", message: error.to_string(), recovery: None }
 }
@@ -238,6 +278,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            open_workspace,
             open_repository,
             refresh_repository,
             log_page,
@@ -261,6 +302,9 @@ pub fn run() {
             watch_repository,
             open_repository_window,
             worktree_action,
+            create_workspace_worktrees,
+            available_terminals,
+            open_in_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Graft");
